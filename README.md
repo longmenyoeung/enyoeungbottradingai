@@ -62,3 +62,12 @@ Analyzes real-time candlestick data across multi-timeframe charts to detect tren
 4. Set Environment Variables:
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
+
+---
+
+## 🤖 Official Telegram Bot & Admin Contact
+
+- **Live Signal Bot**: [https://t.me/menyoeungtradingaibot](https://t.me/menyoeungtradingaibot) (`@menyoeungtradingaibot`)
+- **Admin Support**: [https://t.me/Menyoeunglong](https://t.me/Menyoeunglong) (`@Menyoeunglong`)
+- **GitHub**: [https://github.com/longmenyoeung](https://github.com/longmenyoeung) (`@longmenyoeung`)
+

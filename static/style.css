@@ -1048,6 +1048,31 @@ body {
 /* ==========================================================================
    ADMIN CONTACT & VERIFIED DEVELOPER SECTION
    ========================================================================== */
+.btn-bot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.3));
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #34d399;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: all 0.2s ease;
+}
+
+.btn-bot:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(5, 150, 105, 0.45));
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 .btn-admin {
   display: inline-flex;
   align-items: center;
@@ -1071,6 +1096,7 @@ body {
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
   color: #fff;
 }
+
 
 .admin-contact-section {
   background: linear-gradient(135deg, rgba(15, 20, 31, 0.95), rgba(21, 29, 46, 0.95));
@@ -1157,6 +1183,19 @@ body {
   font-weight: 800;
 }
 
+.bot-btn {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.25));
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #34d399;
+}
+
+.bot-btn:hover {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+  transform: translateY(-2px);
+}
+
 .tg-btn {
   background: linear-gradient(135deg, rgba(34, 158, 217, 0.15), rgba(34, 158, 217, 0.25));
   border: 1px solid rgba(34, 158, 217, 0.4);
@@ -1169,6 +1208,7 @@ body {
   box-shadow: 0 0 16px rgba(34, 158, 217, 0.4);
   transform: translateY(-2px);
 }
+
 
 .gh-btn {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.12));
