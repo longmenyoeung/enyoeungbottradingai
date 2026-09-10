@@ -140,15 +140,24 @@ function initChart() {
     title: "EMA 200",
   });
 
-  // Handle window resizing
-  window.addEventListener("resize", () => {
+  // Handle container and window resizing responsively
+  const resizeChart = () => {
     if (chart && chartContainer) {
+      const rect = chartContainer.getBoundingClientRect();
       chart.applyOptions({
-        width: chartContainer.clientWidth,
-        height: chartContainer.clientHeight,
+        width: rect.width || chartContainer.clientWidth,
+        height: rect.height || chartContainer.clientHeight,
       });
     }
-  });
+  };
+
+  window.addEventListener("resize", resizeChart);
+  window.addEventListener("orientationchange", () => setTimeout(resizeChart, 200));
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => resizeChart());
+    ro.observe(chartContainer);
+  }
 }
 
 /**
