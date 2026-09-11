@@ -1,4 +1,4 @@
-# ⚡ Binance Crypto Chart Analyzer & Smart Signal Bot
+# ⚡ Men Trading - AI Quantitative Crypto Terminal & Signal Bot
 
 An automated crypto trading signal and chart analysis system for **Binance**.
 Analyzes real-time candlestick data across multi-timeframe charts to detect trend alignment, momentum shifts, and volatility-adjusted risk levels.
@@ -7,6 +7,20 @@ Analyzes real-time candlestick data across multi-timeframe charts to detect tren
 
 ## 🎯 Features
 
+- **Branding**: Official **Men Trading** AI Quantitative Terminal.
+- **50+ Cryptos & Sector Filters**:
+  - Live scanning across **Majors, Layer 1/2, DeFi, AI & Big Data, and Trending Memes**.
+  - Instant autocomplete search for 50+ Binance USDT trading pairs.
+- **Multi-Timeframe (MTF) Confluence Matrix**:
+  - Real-time trend & momentum consensus across **5m, 15m, 1h, 4h, and 1D** simultaneously.
+  - Overall Confluence Percentage Score and 1-click timeframe switching.
+- **Interactive Position Size & Risk Calculator (with Leverage)**:
+  - Calculates exact position size in USD and coins based on your account size and risk %.
+  - Live leverage simulator (1x to 50x) with margin requirement and liquidation safety warning.
+  - Projected profit and R:R calculations for TP1, TP2, and TP3.
+- **Live Audio Chime & Visual Signal Alerts**:
+  - Synthesized Web Audio alert chimes when new BUY/SELL signals trigger.
+  - One-click sound toggle (Mute / Sound ON).
 - **Automated Entry & Exit Targets**:
   - **Optimal Entry Price**: Trend & momentum confluence trigger.
   - **Stop Loss (SL)**: Dynamically adjusted via ATR (Average True Range) and swing pivots.
@@ -17,8 +31,6 @@ Analyzes real-time candlestick data across multi-timeframe charts to detect tren
   - TradingView Lightweight Charts rendering candles and volume.
   - Live horizontal visual lines for Entry, SL, and TP levels directly on the chart.
   - EMA (20, 50, 200) trend indicator overlays.
-- **Multi-Coin Market Scanner**:
-  - Real-time scan of top liquid Binance pairs (BTC, ETH, SOL, BNB, XRP, DOGE, NEAR, etc.).
 - **24/7 Telegram Alerts**:
   - Background worker continuously monitors signals and pushes alerts directly to your phone.
 - **CLI Runner**:

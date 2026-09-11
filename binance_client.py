@@ -17,21 +17,48 @@ BINANCE_API_BASES = [
 # Common intervals supported by Binance
 VALID_INTERVALS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "1w"]
 
-# Curated default top liquid pairs
-DEFAULT_WATCHLIST = [
-    "BTCUSDT",
-    "ETHUSDT",
-    "SOLUSDT",
-    "BNBUSDT",
-    "XRPUSDT",
-    "DOGEUSDT",
-    "ADAUSDT",
-    "AVAXUSDT",
-    "LINKUSDT",
-    "SUIUSDT",
-    "NEARUSDT",
-    "PEPEUSDT",
-]
+# Curated categorized top crypto assets (50+ coins)
+COIN_CATEGORIES: Dict[str, List[str]] = {
+    "majors": [
+        "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT",
+        "DOGEUSDT", "ADAUSDT", "AVAXUSDT", "LINKUSDT", "LTCUSDT",
+        "BCHUSDT", "DOTUSDT", "TRXUSDT", "ATOMUSDT",
+    ],
+    "layer1_2": [
+        "SUIUSDT", "NEARUSDT", "APTUSDT", "OPUSDT", "ARBUSDT",
+        "SEIUSDT", "TIAUSDT", "INJUSDT", "FTMUSDT", "KASUSDT",
+        "POLUSDT", "ALGOUSDT", "HBARUSDT",
+    ],
+    "defi": [
+        "UNIUSDT", "AAVEUSDT", "MKRUSDT", "PENDLEUSDT", "CRVUSDT",
+        "LDOUSDT", "ONDOUSDT", "SNXUSDT", "RUNEUSDT", "COMPUSDT",
+    ],
+    "ai": [
+        "FETUSDT", "RENDERUSDT", "GRTUSDT", "TAOUSDT", "WLDUSDT",
+        "ICPUSDT", "ROSEUSDT", "ARKMUSDT",
+    ],
+    "memes": [
+        "PEPEUSDT", "SHIBUSDT", "WIFUSDT", "BONKUSDT", "FLOKIUSDT",
+        "POPCATUSDT", "BOMEUSDT", "MEMEUSDT", "NEIROUSDT",
+    ],
+}
+
+# Unified default watchlist of 50+ top liquid tokens
+DEFAULT_WATCHLIST: List[str] = []
+for _cat_coins in COIN_CATEGORIES.values():
+    for _coin in _cat_coins:
+        if _coin not in DEFAULT_WATCHLIST:
+            DEFAULT_WATCHLIST.append(_coin)
+
+
+def get_category_for_symbol(symbol: str) -> str:
+    """Returns the market category for a given symbol."""
+    sym = symbol.upper().strip()
+    for cat, symbols in COIN_CATEGORIES.items():
+        if sym in symbols:
+            return cat
+    return "majors"
+
 
 
 async def fetch_klines(
@@ -101,11 +128,14 @@ async def fetch_ticker_24h(symbol: Optional[str] = None) -> Any:
     return []
 
 
-async def get_top_symbols(limit: int = 15) -> List[Dict[str, Any]]:
+async def get_top_symbols(limit: int = 50, category: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Get top liquid USDT trading pairs from Binance sorted by quote volume.
+    Supports filtering by category (majors, layer1_2, defi, ai, memes).
     Falls back to curated DEFAULT_WATCHLIST if network issues or throttling occur.
     """
+    allowed_symbols = set(COIN_CATEGORIES.get(category, [])) if category and category != "all" else None
+
     try:
         all_tickers = await fetch_ticker_24h()
         usdt_tickers = [
@@ -118,6 +148,7 @@ async def get_top_symbols(limit: int = 15) -> List[Dict[str, Any]]:
             and not t["symbol"].startswith("FDUSD")
             and not t["symbol"].startswith("TUSD")
             and not t["symbol"].startswith("EUR")
+            and (allowed_symbols is None or t["symbol"] in allowed_symbols)
         ]
         usdt_tickers.sort(key=lambda x: float(x.get("quoteVolume", 0)), reverse=True)
 
@@ -131,8 +162,19 @@ async def get_top_symbols(limit: int = 15) -> List[Dict[str, Any]]:
                     "volume": float(t["quoteVolume"]),
                     "high24h": float(t["highPrice"]),
                     "low24h": float(t["lowPrice"]),
+                    "category": get_category_for_symbol(t["symbol"]),
                 }
             )
         return top
     except Exception:
-        return [{"symbol": s, "price": 0.0, "change24h": 0.0} for s in DEFAULT_WATCHLIST[:limit]]
+        fallback_list = COIN_CATEGORIES.get(category, DEFAULT_WATCHLIST) if category and category != "all" else DEFAULT_WATCHLIST
+        return [
+            {
+                "symbol": s,
+                "price": 0.0,
+                "change24h": 0.0,
+                "category": get_category_for_symbol(s),
+            }
+            for s in fallback_list[:limit]
+        ]
+

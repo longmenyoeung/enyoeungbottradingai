@@ -19,6 +19,8 @@ from dotenv import load_dotenv
 from binance_client import (
     DEFAULT_WATCHLIST,
     VALID_INTERVALS,
+    COIN_CATEGORIES,
+    get_category_for_symbol,
     fetch_klines,
     get_top_symbols,
 )
@@ -105,7 +107,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Binance Crypto Analyzer & Trading Signal Bot",
+    title="Men Trading - AI Crypto Chart Analysis & Signal Terminal",
     lifespan=lifespan,
     docs_url=None,  # Disabled public Swagger docs for security
     redoc_url=None,  # Disabled public ReDoc for security
@@ -130,15 +132,22 @@ STATIC_DIR.mkdir(exist_ok=True)
 
 
 @app.get("/api/symbols")
-async def get_symbols():
-    """Returns top active Binance USDT pairs."""
+async def get_symbols(category: Optional[str] = Query(None, description="Optional category filter")):
+    """Returns categorized active Binance USDT pairs."""
     try:
-        symbols = await get_top_symbols(20)
-        return {"success": True, "symbols": symbols}
+        symbols = await get_top_symbols(limit=60, category=category)
+        return {
+            "success": True,
+            "symbols": symbols,
+            "categories": list(COIN_CATEGORIES.keys()),
+            "total": len(symbols),
+        }
     except Exception as e:
+        fallback = COIN_CATEGORIES.get(category, DEFAULT_WATCHLIST) if category and category != "all" else DEFAULT_WATCHLIST
         return {
             "success": False,
-            "symbols": [{"symbol": s, "price": 0.0, "change24h": 0.0} for s in DEFAULT_WATCHLIST],
+            "symbols": [{"symbol": s, "price": 0.0, "change24h": 0.0, "category": get_category_for_symbol(s)} for s in fallback],
+            "categories": list(COIN_CATEGORIES.keys()),
             "error": str(e),
         }
 
@@ -156,7 +165,6 @@ async def analyze(
     - actionable trading signals (Entry, SL, TP1, TP2, TP3)
     """
     clean_sym = symbol.upper().strip()
-    # Security: Validate symbol characters strictly
     if not re.match(r"^[A-Z0-9]{2,14}$", clean_sym):
         return {"success": False, "error": "Invalid symbol format. Use alphanumeric characters only."}
 
@@ -216,6 +224,7 @@ async def analyze(
             "success": True,
             "symbol": clean_sym,
             "interval": interval,
+            "category": get_category_for_symbol(clean_sym),
             "candles": chart_candles,
             "volume": chart_volume,
             "ema20": ema20_line,
@@ -228,42 +237,161 @@ async def analyze(
         return {"success": False, "error": str(e)}
 
 
-@app.get("/api/scanner")
-async def scanner(interval: str = Query("15m")):
+@app.get("/api/mtf")
+async def get_mtf_confluence(symbol: str = Query("BTCUSDT", description="Crypto trading pair")):
     """
-    Scans top watchlist coins and returns high-level signals and Entry/TP/SL targets.
+    Analyzes multi-timeframe confluence across 5m, 15m, 1h, 4h, and 1d.
+    Returns trend bias, RSI, EMA alignment, and confluence consensus score.
     """
-    top_items = await get_top_symbols(12)
-    symbols = [item["symbol"] for item in top_items] if top_items else DEFAULT_WATCHLIST
+    clean_sym = symbol.upper().strip()
+    if not re.match(r"^[A-Z0-9]{2,14}$", clean_sym):
+        return {"success": False, "error": "Invalid symbol format"}
+    if not clean_sym.endswith("USDT"):
+        clean_sym += "USDT"
 
-    scan_results = []
-    for sym in symbols:
+    tf_list = ["5m", "15m", "1h", "4h", "1d"]
+
+    async def fetch_and_analyze_tf(tf: str):
         try:
-            candles = await fetch_klines(sym, interval, limit=120)
-            if candles:
+            candles = await fetch_klines(clean_sym, tf, limit=80)
+            if not candles or len(candles) < 25:
+                return tf, None
+            indicators = calculate_all_indicators(candles)
+            sig = analyze_market_signals(candles, indicators, clean_sym)
+            price = candles[-1]["close"]
+
+            # EMA Trend condition
+            e20 = indicators["ema20"][-1] if indicators.get("ema20") and indicators["ema20"][-1] is not None else price
+            e50 = indicators["ema50"][-1] if indicators.get("ema50") and indicators["ema50"][-1] is not None else price
+            if price >= e20 >= e50:
+                trend = "BULLISH"
+            elif price <= e20 <= e50:
+                trend = "BEARISH"
+            else:
+                trend = "CONSOLIDATION"
+
+            return tf, {
+                "signal": sig["signal"],
+                "bias": sig["bias"],
+                "confidence": sig["confidence"],
+                "rsi": sig["rsi"],
+                "trend": trend,
+                "price": price,
+            }
+        except Exception:
+            return tf, None
+
+    results = await asyncio.gather(*[fetch_and_analyze_tf(tf) for tf in tf_list])
+    tf_data = {}
+    bull_count = 0
+    bear_count = 0
+    valid_count = 0
+
+    for tf, data in results:
+        if data:
+            tf_data[tf] = data
+            valid_count += 1
+            if "BUY" in data["signal"] or data["bias"] == "LONG":
+                bull_count += 1
+            elif "SELL" in data["signal"] or data["bias"] == "SHORT":
+                bear_count += 1
+        else:
+            tf_data[tf] = {
+                "signal": "NEUTRAL",
+                "bias": "NEUTRAL",
+                "confidence": 50,
+                "rsi": 50.0,
+                "trend": "NEUTRAL",
+                "price": 0.0,
+            }
+
+    if valid_count > 0:
+        if bull_count >= 4:
+            overall_bias = "STRONG_BULLISH"
+            consensus = f"{bull_count}/{len(tf_list)} Bullish Confluence"
+        elif bull_count >= 3:
+            overall_bias = "BULLISH"
+            consensus = f"{bull_count}/{len(tf_list)} Bullish Confluence"
+        elif bear_count >= 4:
+            overall_bias = "STRONG_BEARISH"
+            consensus = f"{bear_count}/{len(tf_list)} Bearish Confluence"
+        elif bear_count >= 3:
+            overall_bias = "BEARISH"
+            consensus = f"{bear_count}/{len(tf_list)} Bearish Confluence"
+        else:
+            overall_bias = "NEUTRAL"
+            consensus = "Mixed Market Structure"
+
+        dominant = max(bull_count, bear_count)
+        confluence_score = int(round((dominant / max(valid_count, 1)) * 100))
+    else:
+        overall_bias = "NEUTRAL"
+        consensus = "Analyzing Market..."
+        confluence_score = 50
+
+    return {
+        "success": True,
+        "symbol": clean_sym,
+        "timeframes": tf_data,
+        "overall_bias": overall_bias,
+        "consensus": consensus,
+        "confluence_score": confluence_score,
+        "bull_count": bull_count,
+        "bear_count": bear_count,
+        "total_timeframes": len(tf_list),
+    }
+
+
+@app.get("/api/scanner")
+async def scanner(
+    interval: str = Query("15m"),
+    category: str = Query("all", description="Filter by category: all, majors, layer1_2, defi, ai, memes"),
+    limit: int = Query(25, description="Max symbols to scan"),
+):
+    """
+    Scans watchlist coins across categories and returns real-time trade recommendations.
+    Uses concurrency with semaphores to scan quickly without hitting rate limits.
+    """
+    if category and category != "all" and category in COIN_CATEGORIES:
+        selected_symbols = COIN_CATEGORIES[category][:limit]
+    else:
+        top_items = await get_top_symbols(limit=limit)
+        selected_symbols = [item["symbol"] for item in top_items] if top_items else DEFAULT_WATCHLIST[:limit]
+
+    sem = asyncio.Semaphore(8)
+
+    async def scan_one(sym: str):
+        async with sem:
+            try:
+                candles = await fetch_klines(sym, interval, limit=100)
+                if not candles or len(candles) < 25:
+                    return None
                 indicators = calculate_all_indicators(candles)
                 sig = analyze_market_signals(candles, indicators, sym)
-                scan_results.append(
-                    {
-                        "symbol": sym,
-                        "price": sig["price"],
-                        "signal": sig["signal"],
-                        "bias": sig["bias"],
-                        "confidence": sig["confidence"],
-                        "entry": sig["entry"],
-                        "stop_loss": sig["stop_loss"],
-                        "take_profit_1": sig["take_profit_1"],
-                        "take_profit_2": sig["take_profit_2"],
-                        "risk_pct": sig["risk_pct"],
-                        "tp1_pct": sig["tp1_pct"],
-                        "tp2_pct": sig["tp2_pct"],
-                        "rsi": sig["rsi"],
-                    }
-                )
-        except Exception:
-            continue
+                return {
+                    "symbol": sym,
+                    "category": get_category_for_symbol(sym),
+                    "price": sig["price"],
+                    "signal": sig["signal"],
+                    "bias": sig["bias"],
+                    "confidence": sig["confidence"],
+                    "entry": sig["entry"],
+                    "stop_loss": sig["stop_loss"],
+                    "take_profit_1": sig["take_profit_1"],
+                    "take_profit_2": sig["take_profit_2"],
+                    "risk_pct": sig["risk_pct"],
+                    "tp1_pct": sig["tp1_pct"],
+                    "tp2_pct": sig["tp2_pct"],
+                    "rsi": sig["rsi"],
+                }
+            except Exception:
+                return None
 
-    return {"success": True, "interval": interval, "results": scan_results}
+    tasks = [scan_one(sym) for sym in selected_symbols]
+    scan_results = [r for r in await asyncio.gather(*tasks) if r is not None]
+
+    return {"success": True, "interval": interval, "category": category, "results": scan_results}
+
 
 
 @app.post("/api/notify")
