@@ -1973,4 +1973,380 @@ body {
   line-height: 1.4;
 }
 
+/* ==========================================================================
+   PROFESSIONAL INTELLIGENCE UI — Grades, Pro Tags, Entry Strategy, Narrative
+   ========================================================================== */
+
+/* --- Signal Hero Top Row & Grade Badge --- */
+.signal-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.signal-grade-badge {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  padding: 2px 12px;
+  min-width: 44px;
+  text-align: center;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+
+/* Grade color identity (shared by hero + scanner badges) */
+.grade-aplus {
+  color: #facc15;
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.12);
+}
+
+.grade-a {
+  color: var(--color-green-light);
+  border-color: var(--color-green);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.grade-b {
+  color: var(--color-blue);
+  border-color: var(--color-blue);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.grade-c {
+  color: var(--color-amber);
+  border-color: var(--color-amber);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.grade-d {
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Glow reserved for the large hero badge (A+ gold, A green) */
+.signal-grade-badge.grade-aplus { box-shadow: 0 0 18px rgba(250, 204, 21, 0.45); }
+.signal-grade-badge.grade-a { box-shadow: 0 0 14px var(--color-green-glow); }
+
+/* --- Professional Tags (Structure / Volume / Entry Quality) --- */
+.signal-pro-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pro-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pro-tag.trend-uptrend { color: var(--color-green); border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.12); }
+.pro-tag.trend-downtrend { color: var(--color-red); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.12); }
+.pro-tag.trend-ranging { color: var(--color-amber); border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.10); }
+.pro-tag.trend-unknown { color: var(--text-muted); }
+
+.pro-tag.vol-accumulation { color: var(--color-green); border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.12); }
+.pro-tag.vol-distribution { color: var(--color-red); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.12); }
+.pro-tag.vol-weak_rally,
+.pro-tag.vol-weak_selloff { color: var(--color-amber); border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.10); }
+.pro-tag.vol-neutral { color: var(--text-secondary); }
+
+.pro-tag.eq-excellent { color: var(--color-green); border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.12); }
+.pro-tag.eq-good { color: var(--color-blue); border-color: rgba(56, 189, 248, 0.4); background: rgba(56, 189, 248, 0.12); }
+.pro-tag.eq-fair { color: var(--text-secondary); }
+.pro-tag.eq-late { color: var(--color-red); border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.12); }
+
+/* --- Entry Strategy Advice Panel --- */
+.entry-strategy-panel {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(168, 85, 247, 0.08));
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-left: 3px solid var(--color-blue);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.strategy-heading,
+.narrative-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-blue);
+  margin-bottom: 6px;
+}
+
+.strategy-icon,
+.narrative-icon { font-size: 14px; }
+
+.strategy-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* --- AI Trade Narrative Panel --- */
+.narrative-panel {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--color-purple);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.narrative-heading { color: var(--color-purple); }
+
+.narrative-text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* --- Scanner Grade Badge & Trend Tag --- */
+.scan-grade-badge {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.scan-trend-tag {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.scanner-loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.signal-calc-trigger-wrap { margin-top: 2px; }
+
+/* ==========================================================================
+   MARKET SENTIMENT INTELLIGENCE WIDGET (Fear & Greed + Global + Trending)
+   ========================================================================== */
+.sentiment-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sentiment-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sentiment-title {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.sentiment-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 14px;
+}
+
+.fng-gauge-wrap,
+.global-stats-wrap,
+.trending-wrap {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.fng-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.fng-gauge { margin-bottom: 8px; }
+
+.fng-bar {
+  position: relative;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, #ef4444 0%, #f97316 25%, #eab308 50%, #84cc16 75%, #22c55e 100%);
+  overflow: hidden;
+}
+
+.fng-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 0.6s ease, background 0.4s ease;
+}
+
+.fng-pointer {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 20px;
+  background: #fff;
+  border-radius: 2px;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+  transition: left 0.6s ease;
+}
+
+.fng-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.fng-value-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fng-value {
+  font-size: 30px;
+  font-weight: 900;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.fng-class {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+}
+
+.fng-zone-extreme_fear { color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+.fng-zone-fear { color: #f97316; background: rgba(249, 115, 22, 0.15); }
+.fng-zone-caution { color: #eab308; background: rgba(234, 179, 8, 0.15); }
+.fng-zone-neutral { color: #a3a3a3; background: rgba(163, 163, 163, 0.15); }
+.fng-zone-greed { color: #84cc16; background: rgba(132, 204, 22, 0.15); }
+.fng-zone-extreme_greed { color: #22c55e; background: rgba(34, 197, 94, 0.15); }
+
+.fng-advice {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: 8px;
+}
+
+/* Global market stats */
+.global-stats-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.global-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.global-stat:last-child { border-bottom: none; }
+
+.gs-label { color: var(--text-muted); font-size: 11px; }
+.gs-value { font-family: var(--font-mono); font-weight: 700; color: var(--text-primary); }
+
+/* Trending coins ticker */
+.trending-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.trending-coins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.trending-coin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.tc-rank { color: var(--text-muted); font-size: 9px; font-weight: 600; }
+.tc-name { color: var(--color-blue); }
+.trending-placeholder { font-size: 11px; color: var(--text-muted); }
+
+/* Responsive: sentiment grid */
+@media (max-width: 900px) {
+  .sentiment-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .fng-gauge-wrap {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .sentiment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .signal-pro-tags {
+    justify-content: flex-start;
+  }
+
+  .fng-value { font-size: 26px; }
+}
+
 

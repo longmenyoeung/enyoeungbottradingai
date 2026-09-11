@@ -4,6 +4,7 @@ Serves interactive dashboard and REST endpoints for real-time market analysis.
 """
 
 from pathlib import Path
+from typing import Optional
 from fastapi import FastAPI, Query, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -27,6 +28,7 @@ from binance_client import (
 from indicators import calculate_all_indicators
 from strategy import analyze_market_signals
 from telegram_notifier import send_signal_alert
+from sentiment import get_sentiment_summary
 
 last_sent_signals = {}
 notify_rate_limits = {}  # {ip: last_request_time}
@@ -44,7 +46,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "script-src 'self' 'unsafe-inline' https://unpkg.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com; "
-            "connect-src 'self' https://*.binance.vision https://*.binance.com https://api.telegram.org; "
+            "connect-src 'self' https://*.binance.vision https://*.binance.com https://api.telegram.org https://api.alternative.me https://api.coingecko.com; "
             "img-src 'self' data: https:; "
             "frame-ancestors 'none'; "
             "base-uri 'self'; "
@@ -80,7 +82,7 @@ async def background_signal_monitor():
                         candles = await fetch_klines(sym, "15m", limit=100)
                         if candles:
                             indicators = calculate_all_indicators(candles)
-                            sig = analyze_market_signals(candles, indicators, sym)
+                            sig = analyze_market_signals(candles, indicators, sym, sentiment=None)
                             signal_type = sig["signal"]
 
                             if "BUY" in signal_type or "SELL" in signal_type:
@@ -129,6 +131,31 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 STATIC_DIR.mkdir(exist_ok=True)
+
+
+# Cached sentiment data (refreshed every 2 minutes to avoid spamming free APIs)
+_sentiment_cache = {"data": None, "ts": 0}
+SENTIMENT_CACHE_TTL = 120  # seconds
+
+
+async def _get_cached_sentiment() -> dict:
+    """Returns cached sentiment data, refreshing if stale."""
+    now = time.time()
+    if _sentiment_cache["data"] is None or (now - _sentiment_cache["ts"]) > SENTIMENT_CACHE_TTL:
+        try:
+            _sentiment_cache["data"] = await get_sentiment_summary()
+            _sentiment_cache["ts"] = now
+        except Exception:
+            if _sentiment_cache["data"] is None:
+                _sentiment_cache["data"] = {"fear_greed": {"value": 50, "zone": "NEUTRAL"}, "trending_coins": [], "global_market": {}}
+    return _sentiment_cache["data"]
+
+
+@app.get("/api/sentiment")
+async def get_sentiment():
+    """Returns live crypto market sentiment: Fear & Greed Index, trending coins, and global market data."""
+    sentiment = await _get_cached_sentiment()
+    return {"success": True, **sentiment}
 
 
 @app.get("/api/symbols")
@@ -180,7 +207,8 @@ async def analyze(
             return {"success": False, "error": f"Failed to retrieve data for {clean_sym}"}
 
         indicators = calculate_all_indicators(candles)
-        signals = analyze_market_signals(candles, indicators, clean_sym)
+        sentiment = await _get_cached_sentiment()
+        signals = analyze_market_signals(candles, indicators, clean_sym, sentiment=sentiment)
 
         # Build lightweight-chart formatted data
         chart_candles = [
@@ -257,7 +285,7 @@ async def get_mtf_confluence(symbol: str = Query("BTCUSDT", description="Crypto 
             if not candles or len(candles) < 25:
                 return tf, None
             indicators = calculate_all_indicators(candles)
-            sig = analyze_market_signals(candles, indicators, clean_sym)
+            sig = analyze_market_signals(candles, indicators, clean_sym, sentiment=None)
             price = candles[-1]["close"]
 
             # EMA Trend condition
@@ -360,6 +388,8 @@ async def scanner(
 
     sem = asyncio.Semaphore(8)
 
+    sentiment = await _get_cached_sentiment()
+
     async def scan_one(sym: str):
         async with sem:
             try:
@@ -367,13 +397,14 @@ async def scanner(
                 if not candles or len(candles) < 25:
                     return None
                 indicators = calculate_all_indicators(candles)
-                sig = analyze_market_signals(candles, indicators, sym)
+                sig = analyze_market_signals(candles, indicators, sym, sentiment=sentiment)
                 return {
                     "symbol": sym,
                     "category": get_category_for_symbol(sym),
                     "price": sig["price"],
                     "signal": sig["signal"],
                     "bias": sig["bias"],
+                    "grade": sig.get("grade", "D"),
                     "confidence": sig["confidence"],
                     "entry": sig["entry"],
                     "stop_loss": sig["stop_loss"],
@@ -383,6 +414,16 @@ async def scanner(
                     "tp1_pct": sig["tp1_pct"],
                     "tp2_pct": sig["tp2_pct"],
                     "rsi": sig["rsi"],
+                    "net_score": sig.get("net_score", 0),
+                    "risk_reward_tp1": sig.get("risk_reward_tp1", "0"),
+                    "narrative": sig.get("narrative", ""),
+                    "entry_quality": sig.get("entry_quality", "N/A"),
+                    "entry_strategy": sig.get("entry_strategy", ""),
+                    "management_advice": sig.get("management_advice", ""),
+                    "market_structure": sig.get("market_structure", {}),
+                    "volume_analysis": sig.get("volume_analysis", {}),
+                    "candle_patterns_summary": sig.get("candle_patterns_summary", ""),
+                    "bb_squeeze_active": sig.get("bb_squeeze_active", False),
                 }
             except Exception:
                 return None
@@ -417,7 +458,8 @@ async def notify(request: Request, symbol: str, interval: str = "15m"):
     try:
         candles = await fetch_klines(clean_sym, interval, limit=200)
         indicators = calculate_all_indicators(candles)
-        analysis = analyze_market_signals(candles, indicators, clean_sym)
+        sentiment = await _get_cached_sentiment()
+        analysis = analyze_market_signals(candles, indicators, clean_sym, sentiment=sentiment)
         sent = await send_signal_alert(analysis, interval)
         return {"success": sent, "message": "Alert sent" if sent else "Failed or Telegram unconfigured"}
     except Exception as e:

@@ -192,10 +192,18 @@
 
         <!-- MAIN SIGNAL HERO BADGE -->
         <div class="signal-hero" id="signalHero">
-          <div class="signal-status-label" id="signalStatusText">ANALYZING...</div>
+          <div class="signal-hero-top">
+            <div class="signal-status-label" id="signalStatusText">ANALYZING...</div>
+            <div class="signal-grade-badge" id="signalGradeBadge">D</div>
+          </div>
           <div class="signal-subinfo">
             <span class="bias-tag" id="biasTag">BIAS: --</span>
             <span class="confidence-tag" id="confidenceTag">Confidence: 0%</span>
+          </div>
+          <div class="signal-pro-tags">
+            <span class="pro-tag structure-tag" id="structureTag">📈 Structure: --</span>
+            <span class="pro-tag volume-tag" id="volumeTag">📊 Volume: --</span>
+            <span class="pro-tag entry-quality-tag" id="entryQualityTag">🎯 Entry: --</span>
           </div>
         </div>
 
@@ -252,11 +260,29 @@
           </div>
         </div>
 
+        <!-- ENTRY STRATEGY ADVICE PANEL -->
+        <div class="entry-strategy-panel" id="entryStrategyPanel">
+          <div class="strategy-heading">
+            <span class="strategy-icon">🎯</span>
+            <span>Entry Strategy</span>
+          </div>
+          <div class="strategy-text" id="entryStrategyText">Analyzing optimal entry...</div>
+        </div>
+
+        <!-- AI TRADE NARRATIVE -->
+        <div class="narrative-panel" id="narrativePanel">
+          <div class="narrative-heading">
+            <span class="narrative-icon">🧠</span>
+            <span>AI Trade Thesis</span>
+          </div>
+          <div class="narrative-text" id="narrativeText">Generating professional analysis...</div>
+        </div>
+
         <!-- Quick Calculator Action Button in Signal Card -->
         <div class="signal-calc-trigger-wrap">
           <button id="signalCalcBtn" class="btn-signal-calc">
             <span class="icon">🧮</span>
-            <span>Calculate Lot Size & Risk for this Signal</span>
+            <span>Calculate Lot Size &amp; Risk for this Signal</span>
           </button>
         </div>
 
@@ -272,6 +298,60 @@
         </div>
       </aside>
     </main>
+
+    <!-- MARKET SENTIMENT INTELLIGENCE WIDGET -->
+    <section class="sentiment-section card" id="sentimentSection">
+      <div class="sentiment-header">
+        <div class="section-badge">MARKET INTELLIGENCE</div>
+        <h3 class="sentiment-title">Global Crypto Sentiment</h3>
+      </div>
+      <div class="sentiment-grid">
+        <!-- Fear & Greed Gauge -->
+        <div class="fng-gauge-wrap">
+          <div class="fng-label">Fear & Greed Index</div>
+          <div class="fng-gauge">
+            <div class="fng-bar">
+              <div class="fng-fill" id="fngFill" style="width: 50%"></div>
+              <div class="fng-pointer" id="fngPointer" style="left: 50%"></div>
+            </div>
+            <div class="fng-scale">
+              <span>0 Extreme Fear</span>
+              <span>50 Neutral</span>
+              <span>100 Extreme Greed</span>
+            </div>
+          </div>
+          <div class="fng-value-wrap">
+            <span class="fng-value" id="fngValue">50</span>
+            <span class="fng-class" id="fngClass">Neutral</span>
+          </div>
+          <div class="fng-advice" id="fngAdvice">Loading sentiment data...</div>
+        </div>
+
+        <!-- Global Market Stats -->
+        <div class="global-stats-wrap">
+          <div class="global-stat">
+            <span class="gs-label">Market Cap 24h</span>
+            <span class="gs-value" id="gsMktCap">--</span>
+          </div>
+          <div class="global-stat">
+            <span class="gs-label">BTC Dominance</span>
+            <span class="gs-value" id="gsBtcDom">--</span>
+          </div>
+          <div class="global-stat">
+            <span class="gs-label">ETH Dominance</span>
+            <span class="gs-value" id="gsEthDom">--</span>
+          </div>
+        </div>
+
+        <!-- Trending Coins Ticker -->
+        <div class="trending-wrap">
+          <div class="trending-label">🔥 Trending Now</div>
+          <div class="trending-coins" id="trendingCoins">
+            <span class="trending-placeholder">Loading trending coins...</span>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- BOTTOM ROW: MARKET SCANNER & 50+ COINS WATCHLIST -->
     <section class="scanner-section card">

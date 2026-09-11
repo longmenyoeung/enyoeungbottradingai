@@ -50,8 +50,14 @@ const mtfScoreVal = document.getElementById("mtfScoreVal");
 // DOM Elements - Signal Card
 const signalHero = document.getElementById("signalHero");
 const signalStatusText = document.getElementById("signalStatusText");
+const signalGradeBadge = document.getElementById("signalGradeBadge");
 const biasTag = document.getElementById("biasTag");
 const confidenceTag = document.getElementById("confidenceTag");
+const structureTag = document.getElementById("structureTag");
+const volumeTag = document.getElementById("volumeTag");
+const entryQualityTag = document.getElementById("entryQualityTag");
+const entryStrategyText = document.getElementById("entryStrategyText");
+const narrativeText = document.getElementById("narrativeText");
 const entryVal = document.getElementById("entryVal");
 const slVal = document.getElementById("slVal");
 const slSub = document.getElementById("slSub");
@@ -69,6 +75,17 @@ const supportVal = document.getElementById("supportVal");
 const resistVal = document.getElementById("resistVal");
 const reasonsList = document.getElementById("reasonsList");
 const confluenceCount = document.getElementById("confluenceCount");
+
+// DOM Elements - Sentiment
+const fngFill = document.getElementById("fngFill");
+const fngPointer = document.getElementById("fngPointer");
+const fngValue = document.getElementById("fngValue");
+const fngClass = document.getElementById("fngClass");
+const fngAdvice = document.getElementById("fngAdvice");
+const gsMktCap = document.getElementById("gsMktCap");
+const gsBtcDom = document.getElementById("gsBtcDom");
+const gsEthDom = document.getElementById("gsEthDom");
+const trendingCoins = document.getElementById("trendingCoins");
 
 // DOM Elements - Scanner
 const scannerCards = document.getElementById("scannerCards");
@@ -372,6 +389,9 @@ async function loadChartData(symbol = currentSymbol, interval = currentInterval)
     // Load Multi-Timeframe Confluence (Feature 2)
     loadMTFConfluence(currentSymbol);
 
+    // Load Sentiment Data (Professional Feature)
+    loadSentimentData();
+
   } catch (err) {
     console.error(err);
     showToast("Network error connecting to API", "error");
@@ -390,8 +410,49 @@ function renderSignalDetails(sig) {
   signalHero.className = "signal-hero " + signal.toLowerCase().replace(" ", "-");
   signalStatusText.textContent = signal;
 
+  // Signal Grade Badge
+  const grade = sig.grade || "D";
+  if (signalGradeBadge) {
+    signalGradeBadge.textContent = grade;
+    signalGradeBadge.className = "signal-grade-badge grade-" + grade.replace("+", "plus").toLowerCase();
+  }
+
   biasTag.textContent = `BIAS: ${sig.bias || "NEUTRAL"}`;
   confidenceTag.textContent = `Confidence: ${sig.confidence || 50}%`;
+
+  // Professional Tags (Structure, Volume, Entry Quality)
+  if (structureTag) {
+    const ms = sig.market_structure || {};
+    const trend = ms.trend || "RANGING";
+    const trendEmoji = trend === "UPTREND" ? "📈" : trend === "DOWNTREND" ? "📉" : "↔️";
+    structureTag.textContent = `${trendEmoji} ${trend}`;
+    structureTag.className = "pro-tag structure-tag trend-" + trend.toLowerCase();
+  }
+
+  if (volumeTag) {
+    const va = sig.volume_analysis || {};
+    const acc = va.accumulation || "NEUTRAL";
+    const accLabels = { ACCUMULATION: "🟢 Accumulation", DISTRIBUTION: "🔴 Distribution", WEAK_RALLY: "🟡 Weak Rally", WEAK_SELLOFF: "🟡 Weak Selloff", NEUTRAL: "⚪ Neutral" };
+    volumeTag.textContent = accLabels[acc] || "⚪ Neutral";
+    volumeTag.className = "pro-tag volume-tag vol-" + acc.toLowerCase();
+  }
+
+  if (entryQualityTag) {
+    const eq = sig.entry_quality || "N/A";
+    const eqLabels = { EXCELLENT: "🎯 Excellent", GOOD: "✅ Good", FAIR: "⚠️ Fair", LATE: "🔴 Late", "N/A": "--" };
+    entryQualityTag.textContent = eqLabels[eq] || eq;
+    entryQualityTag.className = "pro-tag entry-quality-tag eq-" + eq.toLowerCase();
+  }
+
+  // Entry Strategy Panel
+  if (entryStrategyText) {
+    entryStrategyText.textContent = sig.entry_strategy || "Analyzing optimal entry...";
+  }
+
+  // AI Trade Narrative
+  if (narrativeText) {
+    narrativeText.textContent = sig.narrative || "Generating professional analysis...";
+  }
 
   entryVal.textContent = `$${formatPrice(sig.entry)}`;
   slVal.textContent = `$${formatPrice(sig.stop_loss)}`;
@@ -578,16 +639,22 @@ function renderScannerCards(items) {
     const card = document.createElement("div");
     card.className = "scan-card";
     const badgeClass = item.signal.toLowerCase().replace(" ", "-");
+    const grade = item.grade || "D";
+    const gradeClass = "grade-" + grade.replace("+", "plus").toLowerCase();
+    const msTrend = item.market_structure ? item.market_structure.trend || "" : "";
+    const trendEmoji = msTrend === "UPTREND" ? "📈" : msTrend === "DOWNTREND" ? "📉" : "↔️";
 
     card.innerHTML = `
       <div class="scan-card-top">
         <span class="scan-sym">${item.symbol}</span>
+        <span class="scan-grade-badge ${gradeClass}">${grade}</span>
         <span class="scan-card-cat">${formatCategoryName(item.category)}</span>
         <span class="scan-badge ${badgeClass}">${item.signal}</span>
       </div>
       <div class="scan-price-row">
         <span class="scan-price">$${formatPrice(item.price)}</span>
         <span style="font-size: 11px; color: #94a3b8;">RSI: ${item.rsi}</span>
+        <span class="scan-trend-tag">${trendEmoji} ${msTrend || "--"}</span>
       </div>
       <div class="scan-targets">
         <span class="scan-tp">TP: +${item.tp1_pct}%</span>
@@ -730,9 +797,12 @@ function calculatePositionSize() {
 function formatPrice(val) {
   if (val === undefined || val === null || isNaN(val)) return "0.00";
   const num = parseFloat(val);
+  if (num === 0) return "0.00";
   if (num >= 1000) return num.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (num >= 1) return num.toFixed(4);
-  return num.toFixed(6);
+  if (num >= 0.01) return num.toFixed(6);
+  if (num >= 0.0001) return num.toFixed(8);
+  return num.toExponential(4);
 }
 
 function showToast(msg, type = "info") {
@@ -916,4 +986,67 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSymbolsDatalist();
   loadChartData(currentSymbol, currentInterval);
   loadScanner(currentInterval, currentCategory);
+  loadSentimentData();
 });
+
+/**
+ * ============================================================================
+ * MARKET SENTIMENT DATA (Fear & Greed + Trending + Global)
+ * ============================================================================
+ */
+async function loadSentimentData() {
+  try {
+    const res = await fetch("/api/sentiment");
+    const data = await res.json();
+    if (!data.success) return;
+
+    // Fear & Greed Gauge
+    const fg = data.fear_greed || {};
+    const val = fg.value || 50;
+
+    if (fngFill) fngFill.style.width = `${val}%`;
+    if (fngPointer) fngPointer.style.left = `${val}%`;
+    if (fngValue) fngValue.textContent = val;
+    if (fngClass) {
+      fngClass.textContent = fg.classification || "Neutral";
+      fngClass.className = "fng-class fng-zone-" + (fg.zone || "NEUTRAL").toLowerCase();
+    }
+    if (fngAdvice) fngAdvice.textContent = fg.advice || "";
+
+    // Color the gauge fill based on value
+    if (fngFill) {
+      if (val <= 25) fngFill.style.background = "linear-gradient(90deg, #ef4444, #f97316)";
+      else if (val <= 45) fngFill.style.background = "linear-gradient(90deg, #f97316, #eab308)";
+      else if (val <= 55) fngFill.style.background = "linear-gradient(90deg, #eab308, #a3a3a3)";
+      else if (val <= 75) fngFill.style.background = "linear-gradient(90deg, #84cc16, #22c55e)";
+      else fngFill.style.background = "linear-gradient(90deg, #22c55e, #10b981)";
+    }
+
+    // Global Market Stats
+    const gm = data.global_market || {};
+    if (gsMktCap) {
+      const change = gm.total_market_cap_change_24h || 0;
+      gsMktCap.textContent = `${change >= 0 ? "+" : ""}${change}%`;
+      gsMktCap.style.color = change >= 0 ? "#10b981" : "#f43f5e";
+    }
+    if (gsBtcDom) gsBtcDom.textContent = `${gm.btc_dominance || 0}%`;
+    if (gsEthDom) gsEthDom.textContent = `${gm.eth_dominance || 0}%`;
+
+    // Trending Coins
+    const trending = data.trending_coins || [];
+    if (trendingCoins) {
+      if (trending.length === 0) {
+        trendingCoins.innerHTML = `<span class="trending-placeholder">No trending data available</span>`;
+      } else {
+        trendingCoins.innerHTML = trending.map((c) =>
+          `<span class="trending-coin-pill">
+            <span class="tc-rank">#${c.market_cap_rank || "?"}</span>
+            <span class="tc-name">${c.symbol}</span>
+          </span>`
+        ).join("");
+      }
+    }
+  } catch (e) {
+    console.warn("Sentiment fetch error:", e);
+  }
+}
