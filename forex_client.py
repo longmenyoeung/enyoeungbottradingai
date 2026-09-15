@@ -858,19 +858,21 @@ async def get_top_forex_pairs(
         items[pair].setdefault("category", get_category_for_forex_pair(pair))
 
     if enrich:
-        enrich_limit = _env_int("FOREX_SYMBOL_ENRICH_LIMIT", DEFAULT_SYMBOL_ENRICH_LIMIT)
+        enrich_limit = _env_int("FOREX_SYMBOL_ENRICH_LIMIT", 6)
         missing = [p for p in pairs if not get_cached_quote(p)][:enrich_limit]
         if missing:
-            sem = asyncio.Semaphore(4)
+            sem = asyncio.Semaphore(6)
 
             async def enrich_one(pair: str) -> None:
                 async with sem:
                     try:
-                        items[pair] = await fetch_forex_ticker(pair)
+                        ticker = await asyncio.wait_for(fetch_forex_ticker(pair), timeout=3.5)
+                        if ticker and isinstance(ticker, dict):
+                            items[pair] = ticker
                     except Exception:
                         pass
 
-            await asyncio.gather(*[enrich_one(p) for p in missing])
+            await asyncio.gather(*[enrich_one(p) for p in missing], return_exceptions=True)
 
     return [items[p] for p in pairs]
 

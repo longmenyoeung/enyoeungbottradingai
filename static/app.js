@@ -170,8 +170,53 @@ function assetUnitLabel(symbol) {
   return isForexMode() ? sym.slice(0, 3) : sym.replace("USDT", "");
 }
 
-// DOM Elements - Scanner
+// DOM Elements - Scanner & Detailed Table View
 const scannerCards = document.getElementById("scannerCards");
+const scannerMarketBadge = document.getElementById("scannerMarketBadge");
+const viewCardsBtn = document.getElementById("viewCardsBtn");
+const viewTableBtn = document.getElementById("viewTableBtn");
+const scannerTableContainer = document.getElementById("scannerTableContainer");
+const scannerTableBody = document.getElementById("scannerTableBody");
+const openDirectoryBtn = document.getElementById("openDirectoryBtn");
+const activePairPill = document.getElementById("activePairPill");
+
+// DOM Elements - Market Explorer Modal (Two Options: Crypto & Forex)
+const marketExplorerModal = document.getElementById("marketExplorerModal");
+const explorerCloseBtn = document.getElementById("explorerCloseBtn");
+const marketExplorerBtn = document.getElementById("marketExplorerBtn");
+const expTabCrypto = document.getElementById("expTabCrypto");
+const expTabForex = document.getElementById("expTabForex");
+const explorerSearchInput = document.getElementById("explorerSearchInput");
+const explorerClearSearch = document.getElementById("explorerClearSearch");
+const explorerCategoryPills = document.getElementById("explorerCategoryPills");
+const explorerCountText = document.getElementById("explorerCountText");
+const explorerFeedNote = document.getElementById("explorerFeedNote");
+const explorerTableBody = document.getElementById("explorerTableBody");
+
+// Two-Option State & Cache
+let currentScannerView = "cards"; // "cards" | "table"
+let explorerActiveMarket = "crypto"; // "crypto" | "forex"
+let explorerActiveCat = "all";
+let explorerSearchQuery = "";
+let marketSymbolsCache = { crypto: [], forex: [] };
+let latestScannerItems = [];
+
+const EXPLORER_CATEGORIES = {
+  crypto: [
+    { key: "all", label: "🌐 All Coins (50+)" },
+    { key: "majors", label: "👑 Majors" },
+    { key: "layer1_2", label: "⚡ Layer 1/2" },
+    { key: "defi", label: "🏦 DeFi" },
+    { key: "ai", label: "🧠 AI & Data" },
+    { key: "memes", label: "🚀 Trending Memes" },
+  ],
+  forex: [
+    { key: "all", label: "🌐 All Pairs (28+)" },
+    { key: "majors", label: "👑 Majors" },
+    { key: "minors", label: "🔀 Minors (Crosses)" },
+    { key: "exotics", label: "🌍 Exotics" },
+  ],
+};
 
 // DOM Elements - Calculator Modal
 const calcModal = document.getElementById("calcModal");
@@ -690,11 +735,12 @@ async function loadMTFConfluence(symbol = currentSymbol) {
  */
 async function loadSymbolsDatalist() {
   try {
-    const res = await fetch(`/api/symbols${marketQuery("?")}`);
+    const res = await fetch(`/api/symbols${marketQuery("?")}&limit=100`);
     const data = await res.json();
     if (!data.success || !data.symbols) return;
 
     allSymbolsCache = data.symbols;
+    marketSymbolsCache[currentMarket] = data.symbols;
     coinDatalist.innerHTML = "";
 
     data.symbols.forEach((item) => {
@@ -712,19 +758,40 @@ async function loadScanner(interval = currentInterval, category = currentCategor
   try {
     const feed = isForexMode() ? "Forex" : "Binance";
     const noun = isForexMode() ? "pairs" : "assets";
-    scannerCards.innerHTML = `<div class="scanner-loading">Scanning ${feed} ${category.toUpperCase()} ${noun} (${interval})...</div>`;
+    if (scannerCards) scannerCards.innerHTML = `<div class="scanner-loading">Scanning ${feed} ${category.toUpperCase()} ${noun} (${interval})...</div>`;
+    if (scannerTableBody) scannerTableBody.innerHTML = `<tr><td colspan="11" class="scanner-table-loading">Scanning ${feed} ${category.toUpperCase()} ${noun} (${interval})...</td></tr>`;
+
     const res = await fetch(`/api/scanner?interval=${interval}&category=${category}&limit=30${marketQuery()}`);
     const data = await res.json();
     if (!data.success) return;
 
-    renderScannerCards(data.results || []);
+    latestScannerItems = data.results || [];
+    renderScannerCards(latestScannerItems);
+    renderScannerTable(latestScannerItems);
   } catch (e) {
     console.warn("Scanner fetch error:", e);
-    scannerCards.innerHTML = `<div class="scanner-loading">Error loading scanner. Try refreshing.</div>`;
+    if (scannerCards) scannerCards.innerHTML = `<div class="scanner-loading">Error loading scanner. Try refreshing.</div>`;
+    if (scannerTableBody) scannerTableBody.innerHTML = `<tr><td colspan="11" class="scanner-table-loading">Error loading scanner. Try refreshing.</td></tr>`;
+  }
+}
+
+function setScannerView(view) {
+  currentScannerView = view === "table" ? "table" : "cards";
+  if (viewCardsBtn) viewCardsBtn.classList.toggle("active", currentScannerView === "cards");
+  if (viewTableBtn) viewTableBtn.classList.toggle("active", currentScannerView === "table");
+
+  if (scannerCards) scannerCards.style.display = currentScannerView === "cards" ? "grid" : "none";
+  if (scannerTableContainer) scannerTableContainer.style.display = currentScannerView === "table" ? "block" : "none";
+
+  if (currentScannerView === "table") {
+    renderScannerTable(latestScannerItems);
+  } else {
+    renderScannerCards(latestScannerItems);
   }
 }
 
 function renderScannerCards(items) {
+  if (!scannerCards) return;
   scannerCards.innerHTML = "";
 
   const filtered = items.filter((item) => {
@@ -775,6 +842,75 @@ function renderScannerCards(items) {
   });
 }
 
+function renderScannerTable(items) {
+  if (!scannerTableBody) return;
+  scannerTableBody.innerHTML = "";
+
+  const filtered = items.filter((item) => {
+    if (currentFilter === "buy") return item.signal.includes("BUY");
+    if (currentFilter === "sell") return item.signal.includes("SELL");
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    scannerTableBody.innerHTML = `<tr><td colspan="11" class="scanner-table-loading">No assets matching "${currentFilter}" filter in category "${currentCategory}".</td></tr>`;
+    return;
+  }
+
+  filtered.forEach((item) => {
+    const tr = document.createElement("tr");
+    const badgeClass = item.signal.toLowerCase().replace(" ", "-");
+    const grade = item.grade || "D";
+    const gradeClass = "grade-" + grade.replace("+", "plus").toLowerCase();
+    const msTrend = item.market_structure ? item.market_structure.trend || "" : "";
+    const trendEmoji = msTrend === "UPTREND" ? "📈" : msTrend === "DOWNTREND" ? "📉" : "↔️";
+    const change = parseFloat(item.change24h || 0);
+    const changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "neutral";
+    const changePrefix = change > 0 ? "+" : "";
+    const icon = isForexMode() ? "💱" : "🪙";
+
+    tr.innerHTML = `
+      <td>
+        <div class="sym-cell">
+          <span class="sym-icon">${icon}</span>
+          <span>${item.symbol}</span>
+        </div>
+      </td>
+      <td class="cat-cell">${formatCategoryName(item.category)}</td>
+      <td class="price-cell">${pricePrefix()}${formatAssetPrice(item.price, item.price_decimals)}</td>
+      <td>
+        <span class="change-pill ${changeClass}">${changePrefix}${change.toFixed(2)}%</span>
+      </td>
+      <td>
+        <span class="signal-badge ${badgeClass}">${item.signal}</span>
+      </td>
+      <td>
+        <span class="scan-grade-badge ${gradeClass}">${grade}</span>
+      </td>
+      <td>
+        <span class="scan-trend-tag">${trendEmoji} ${msTrend || "--"}</span>
+      </td>
+      <td style="font-family: var(--font-mono); font-size: 12px; color: #94a3b8;">${item.rsi}</td>
+      <td style="font-family: var(--font-mono); font-size: 11px;">
+        <span style="color: #10b981;">TP: +${item.tp1_pct}%${isForexMode() && item.tp1_pips ? ` (${item.tp1_pips}p)` : ""}</span><br>
+        <span style="color: #f43f5e;">SL: -${item.risk_pct}%${isForexMode() && item.risk_pips ? ` (${item.risk_pips}p)` : ""}</span>
+      </td>
+      <td style="font-family: var(--font-mono); font-size: 11.5px; color: var(--color-blue); font-weight: 700;">${item.risk_reward_tp1 || "1:1.5"}</td>
+      <td>
+        <button class="btn-table-analyze" type="button">Analyze ➔</button>
+      </td>
+    `;
+
+    tr.addEventListener("click", () => {
+      currentSymbol = item.symbol;
+      loadChartData(currentSymbol, currentInterval);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+
+    scannerTableBody.appendChild(tr);
+  });
+}
+
 function formatCategoryName(cat) {
   if (!cat) return "Majors";
   if (cat === "layer1_2") return "Layer 1/2";
@@ -782,6 +918,179 @@ function formatCategoryName(cat) {
   if (cat === "ai") return "AI";
   if (cat === "memes") return "Meme";
   return cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
+/**
+ * ============================================================================
+ * MARKET EXPLORER (TWO OPTIONS: CRYPTO 50+ COINS & FOREX 28+ PAIRS)
+ * ============================================================================
+ */
+async function fetchMarketSymbols(market) {
+  const mkt = market === "forex" ? "forex" : "crypto";
+  if (marketSymbolsCache[mkt] && marketSymbolsCache[mkt].length > 0) {
+    return marketSymbolsCache[mkt];
+  }
+  try {
+    const res = await fetch(`/api/symbols?market=${mkt}&limit=100`);
+    const data = await res.json();
+    if (data.success && Array.isArray(data.symbols)) {
+      marketSymbolsCache[mkt] = data.symbols;
+      return data.symbols;
+    }
+  } catch (e) {
+    console.warn("fetchMarketSymbols error:", e);
+  }
+  return marketSymbolsCache[mkt] || [];
+}
+
+function openMarketExplorer(targetMarket) {
+  if (!marketExplorerModal) return;
+  explorerActiveMarket = targetMarket || currentMarket;
+  explorerActiveCat = "all";
+  explorerSearchQuery = "";
+  if (explorerSearchInput) explorerSearchInput.value = "";
+  if (explorerClearSearch) explorerClearSearch.style.display = "none";
+
+  marketExplorerModal.style.display = "flex";
+  syncExplorerMarketTabs();
+  renderExplorerCategoryPills();
+  loadAndRenderExplorer();
+}
+
+function closeMarketExplorer() {
+  if (marketExplorerModal) marketExplorerModal.style.display = "none";
+}
+
+function switchExplorerMarket(market) {
+  explorerActiveMarket = market === "forex" ? "forex" : "crypto";
+  explorerActiveCat = "all";
+  syncExplorerMarketTabs();
+  renderExplorerCategoryPills();
+  loadAndRenderExplorer();
+}
+
+function syncExplorerMarketTabs() {
+  if (expTabCrypto) expTabCrypto.classList.toggle("active", explorerActiveMarket === "crypto");
+  if (expTabForex) expTabForex.classList.toggle("active", explorerActiveMarket === "forex");
+}
+
+function renderExplorerCategoryPills() {
+  if (!explorerCategoryPills) return;
+  explorerCategoryPills.innerHTML = "";
+  const cats = EXPLORER_CATEGORIES[explorerActiveMarket] || [];
+
+  cats.forEach((cat) => {
+    const btn = document.createElement("button");
+    btn.className = `exp-cat-pill ${cat.key === explorerActiveCat ? "active" : ""}`;
+    btn.textContent = cat.label;
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      explorerActiveCat = cat.key;
+      explorerCategoryPills.querySelectorAll(".exp-cat-pill").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderExplorerTable();
+    });
+    explorerCategoryPills.appendChild(btn);
+  });
+}
+
+async function loadAndRenderExplorer() {
+  if (explorerTableBody) {
+    explorerTableBody.innerHTML = `<tr><td colspan="7" class="explorer-loading-row">Fetching ${explorerActiveMarket === "forex" ? "Forex Currency Pairs" : "Crypto Coins"}...</td></tr>`;
+  }
+  const symbols = await fetchMarketSymbols(explorerActiveMarket);
+  renderExplorerTable(symbols);
+}
+
+function renderExplorerTable(cachedItems) {
+  if (!explorerTableBody) return;
+  const list = cachedItems || marketSymbolsCache[explorerActiveMarket] || [];
+  const query = (explorerSearchQuery || "").trim().toUpperCase();
+
+  const filtered = list.filter((item) => {
+    const sym = String(item.symbol || "").toUpperCase();
+    const cat = String(item.category || "").toLowerCase();
+
+    // Category filter
+    if (explorerActiveCat !== "all" && cat !== explorerActiveCat) {
+      return false;
+    }
+
+    // Search query filter
+    if (query) {
+      return sym.includes(query) || cat.includes(query.toLowerCase());
+    }
+    return true;
+  });
+
+  if (explorerCountText) {
+    const noun = explorerActiveMarket === "forex" ? "Forex Pairs" : "Crypto Coins";
+    explorerCountText.textContent = `Showing ${filtered.length} of ${list.length} ${noun}`;
+  }
+
+  if (explorerFeedNote) {
+    explorerFeedNote.textContent = explorerActiveMarket === "forex"
+      ? "Real-time Forex Quotes • Click any row to load chart & indicators"
+      : "Binance Public Feed • Click any row to load chart & indicators";
+  }
+
+  if (filtered.length === 0) {
+    explorerTableBody.innerHTML = `<tr><td colspan="7" class="explorer-loading-row">No instruments matching "${explorerSearchQuery}" in category "${explorerActiveCat}".</td></tr>`;
+    return;
+  }
+
+  explorerTableBody.innerHTML = "";
+  const isForex = explorerActiveMarket === "forex";
+
+  filtered.forEach((item) => {
+    const tr = document.createElement("tr");
+    const change = parseFloat(item.change24h || 0);
+    const changeClass = change > 0 ? "positive" : change < 0 ? "negative" : "neutral";
+    const changePrefix = change > 0 ? "+" : "";
+    const pPrefix = isForex ? "" : "$";
+    const icon = isForex ? "💱" : "🪙";
+    const high = item.high24h ? `${pPrefix}${formatAssetPrice(item.high24h, item.price_decimals)}` : "--";
+    const low = item.low24h ? `${pPrefix}${formatAssetPrice(item.low24h, item.price_decimals)}` : "--";
+    const vol = item.volume ? (item.volume >= 1e6 ? `${(item.volume / 1e6).toFixed(1)}M` : `${(item.volume / 1e3).toFixed(0)}k`) : (isForex ? "Tick Vol" : "--");
+
+    tr.innerHTML = `
+      <td>
+        <div class="exp-sym-badge">
+          <span class="exp-sym-icon">${icon}</span>
+          <span>${item.symbol}</span>
+        </div>
+      </td>
+      <td style="text-transform: capitalize; color: #94a3b8; font-size: 11.5px;">${formatCategoryName(item.category)}</td>
+      <td style="font-family: var(--font-mono); font-weight: 700; color: #fff;">${pPrefix}${formatAssetPrice(item.price, item.price_decimals)}</td>
+      <td>
+        <span class="change-pill ${changeClass}">${changePrefix}${change.toFixed(2)}%</span>
+      </td>
+      <td style="font-family: var(--font-mono); font-size: 11.5px; color: #94a3b8;">
+        H: <span style="color:#10b981;">${high}</span> / L: <span style="color:#f43f5e;">${low}</span>
+      </td>
+      <td style="font-family: var(--font-mono); font-size: 11.5px; color: #94a3b8;">${vol}</td>
+      <td>
+        <button class="exp-select-btn" type="button">Select &amp; Analyze ➔</button>
+      </td>
+    `;
+
+    tr.addEventListener("click", () => {
+      selectInstrumentFromExplorer(item.symbol, explorerActiveMarket);
+    });
+
+    explorerTableBody.appendChild(tr);
+  });
+}
+
+function selectInstrumentFromExplorer(symbol, market) {
+  closeMarketExplorer();
+  if (market !== currentMarket) {
+    switchMarket(market);
+  }
+  currentSymbol = symbol;
+  loadChartData(currentSymbol, currentInterval);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  showToast(`Loaded ${symbol} on ${market.toUpperCase()} terminal`, "info");
 }
 
 /**
@@ -1079,6 +1388,71 @@ function setupEventListeners() {
     });
   });
 
+  // Market Explorer Triggers & Controls
+  if (marketExplorerBtn) {
+    marketExplorerBtn.addEventListener("click", () => openMarketExplorer(currentMarket));
+  }
+  if (activePairPill) {
+    activePairPill.addEventListener("click", () => openMarketExplorer(currentMarket));
+  }
+  if (openDirectoryBtn) {
+    openDirectoryBtn.addEventListener("click", () => {
+      setScannerView("table");
+      const sec = document.getElementById("marketDirectorySection");
+      if (sec) sec.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  if (viewCardsBtn) {
+    viewCardsBtn.addEventListener("click", () => setScannerView("cards"));
+  }
+  if (viewTableBtn) {
+    viewTableBtn.addEventListener("click", () => setScannerView("table"));
+  }
+
+  if (explorerCloseBtn) {
+    explorerCloseBtn.addEventListener("click", closeMarketExplorer);
+  }
+  if (marketExplorerModal) {
+    marketExplorerModal.addEventListener("click", (e) => {
+      if (e.target === marketExplorerModal) closeMarketExplorer();
+    });
+  }
+
+  if (expTabCrypto) {
+    expTabCrypto.addEventListener("click", () => switchExplorerMarket("crypto"));
+  }
+  if (expTabForex) {
+    expTabForex.addEventListener("click", () => switchExplorerMarket("forex"));
+  }
+
+  if (explorerSearchInput) {
+    explorerSearchInput.addEventListener("input", (e) => {
+      explorerSearchQuery = e.target.value;
+      if (explorerClearSearch) {
+        explorerClearSearch.style.display = explorerSearchQuery ? "block" : "none";
+      }
+      renderExplorerTable();
+    });
+  }
+
+  if (explorerClearSearch) {
+    explorerClearSearch.addEventListener("click", () => {
+      explorerSearchQuery = "";
+      if (explorerSearchInput) explorerSearchInput.value = "";
+      explorerClearSearch.style.display = "none";
+      renderExplorerTable();
+    });
+  }
+
+  // Keyboard shortcut: ESC to close modals
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeMarketExplorer();
+      closeCalculatorModal();
+    }
+  });
+
   // Market Switcher (Crypto <-> Forex)
   if (marketSwitcher) {
     marketSwitcher.querySelectorAll(".market-tab").forEach((tab) => {
@@ -1154,6 +1528,11 @@ function applyMarketUI() {
   if (sentimentBadge) sentimentBadge.textContent = forex ? "FX MACRO INTELLIGENCE" : "MARKET INTELLIGENCE";
 
   if (scannerTitle) scannerTitle.textContent = forex ? "Men Trading Forex Pair Scanner" : "Men Trading Multi-Coin Scanner";
+  if (scannerMarketBadge) {
+    scannerMarketBadge.textContent = forex
+      ? "Option 2: Forex Market (28+ Pairs)"
+      : "Option 1: Crypto Market (50+ Coins)";
+  }
   if (scannerDesc) {
     scannerDesc.textContent = forex
       ? "Real-time scan across 28+ forex pairs — majors, minors & exotics"

@@ -30,11 +30,12 @@
         </div>
 
         <div class="symbol-selector-wrap">
-          <div class="active-pair-pill" id="activePairPill">
+          <div class="active-pair-pill clickable-pill" id="activePairPill" title="Click to browse all Crypto Coins & Forex Pairs">
             <span class="coin-icon" id="pairIcon">🪙</span>
             <span class="pair-name" id="currentPairText">BTCUSDT</span>
             <span class="pair-category-badge" id="pairCategoryBadge">Majors</span>
             <span class="pair-price" id="currentPriceText">$0.00</span>
+            <span class="pill-chevron" title="Open Asset Explorer">▼</span>
           </div>
 
           <div class="search-box">
@@ -58,6 +59,12 @@
 
         <!-- Controls & Actions -->
         <div class="header-actions">
+          <!-- Market Explorer Modal Trigger -->
+          <button id="marketExplorerBtn" class="btn-explorer" title="Browse All Crypto Coins (50+) & Forex Pairs (28+)">
+            <span class="icon">🪙💱</span>
+            <span class="btn-text">Explorer</span>
+          </button>
+
           <!-- Audio Alert Toggle -->
           <button id="audioToggleBtn" class="btn-icon active-audio" title="Toggle Sound Alert (Chime on signals)">
             <span class="icon" id="audioIcon">🔊</span>
@@ -100,14 +107,20 @@
 
     <!-- MARKET SWITCHER (Crypto / Forex) -->
     <section class="market-switcher-bar card" id="marketSwitcherBar">
-      <div class="market-switcher" id="marketSwitcher">
-        <button class="market-tab active" data-market="crypto" type="button">
-          <span class="market-tab-icon">🪙</span>
-          <span class="market-tab-text">Crypto</span>
-        </button>
-        <button class="market-tab" data-market="forex" type="button">
-          <span class="market-tab-icon">💱</span>
-          <span class="market-tab-text">Forex</span>
+      <div class="market-switcher-left">
+        <div class="market-switcher" id="marketSwitcher">
+          <button class="market-tab active" data-market="crypto" type="button" title="Option 1: Crypto Market (50+ Coins)">
+            <span class="market-tab-icon">🪙</span>
+            <span class="market-tab-text">Option 1: Crypto (50+ Coins)</span>
+          </button>
+          <button class="market-tab" data-market="forex" type="button" title="Option 2: Forex Market (28+ FX Pairs)">
+            <span class="market-tab-icon">💱</span>
+            <span class="market-tab-text">Option 2: Forex (28+ Pairs)</span>
+          </button>
+        </div>
+        <button id="openDirectoryBtn" class="btn-directory-quick" type="button" title="Browse full coins or forex pairs directory">
+          <span class="icon">📋</span>
+          <span class="btn-text">All Assets Directory</span>
         </button>
       </div>
       <div class="market-switcher-meta">
@@ -435,42 +448,84 @@
       </div>
     </section>
 
-    <!-- BOTTOM ROW: MARKET SCANNER & 50+ COINS WATCHLIST -->
-    <section class="scanner-section card">
+    <!-- BOTTOM ROW: MARKET SCANNER & ASSETS DIRECTORY -->
+    <section class="scanner-section card" id="marketDirectorySection">
       <div class="scanner-header">
         <div class="scanner-title-wrap">
-          <h3 class="scanner-title" id="scannerTitle">Men Trading Multi-Coin Scanner</h3>
-          <span class="scanner-desc" id="scannerDesc">Real-time scan across 50+ liquid crypto assets & sectors</span>
+          <div class="scanner-title-row">
+            <h3 class="scanner-title" id="scannerTitle">Men Trading Multi-Coin Scanner</h3>
+            <span class="market-option-badge" id="scannerMarketBadge">Option 1: Crypto Market (50+ Coins)</span>
+          </div>
+          <span class="scanner-desc" id="scannerDesc">Real-time scan across 50+ liquid crypto assets &amp; sectors</span>
         </div>
         
-        <!-- Signal Filter (All, Buy, Sell) -->
-        <div class="scanner-filters">
-          <button class="filter-btn active" data-filter="all">All Signals</button>
-          <button class="filter-btn" data-filter="buy">Buy Only</button>
-          <button class="filter-btn" data-filter="sell">Sell Only</button>
+        <div class="scanner-controls-wrap">
+          <!-- View Switcher (Cards vs Detailed Table) -->
+          <div class="view-switch-group">
+            <button class="view-btn active" data-view="cards" id="viewCardsBtn" type="button" title="Cards View">
+              <span>🗂️ Cards</span>
+            </button>
+            <button class="view-btn" data-view="table" id="viewTableBtn" type="button" title="Detailed Table View (List Down Everything)">
+              <span>📋 Detailed Table</span>
+            </button>
+          </div>
+
+          <!-- Signal Filter (All, Buy, Sell) -->
+          <div class="scanner-filters">
+            <button class="filter-btn active" data-filter="all" type="button">All Signals</button>
+            <button class="filter-btn" data-filter="buy" type="button">Buy Only</button>
+            <button class="filter-btn" data-filter="sell" type="button">Sell Only</button>
+          </div>
         </div>
       </div>
 
       <!-- Category Filter Pills (crypto sectors & forex pair groups) -->
       <div class="category-tabs-bar" id="categoryTabs">
         <div class="category-pills" id="cryptoCategoryPills">
-          <button class="cat-pill active" data-cat="all">🌐 All Assets (50+)</button>
-          <button class="cat-pill" data-cat="majors">👑 Majors</button>
-          <button class="cat-pill" data-cat="layer1_2">⚡ Layer 1/2</button>
-          <button class="cat-pill" data-cat="defi">🏦 DeFi</button>
-          <button class="cat-pill" data-cat="ai">🧠 AI & Data</button>
-          <button class="cat-pill" data-cat="memes">🚀 Trending Memes</button>
+          <button class="cat-pill active" data-cat="all" type="button">🌐 All Crypto Coins (50+)</button>
+          <button class="cat-pill" data-cat="majors" type="button">👑 Majors</button>
+          <button class="cat-pill" data-cat="layer1_2" type="button">⚡ Layer 1/2</button>
+          <button class="cat-pill" data-cat="defi" type="button">🏦 DeFi</button>
+          <button class="cat-pill" data-cat="ai" type="button">🧠 AI &amp; Data</button>
+          <button class="cat-pill" data-cat="memes" type="button">🚀 Trending Memes</button>
         </div>
         <div class="category-pills" id="forexCategoryPills" style="display: none;">
-          <button class="cat-pill active" data-cat="all">🌐 All Pairs (28+)</button>
-          <button class="cat-pill" data-cat="majors">👑 Majors</button>
-          <button class="cat-pill" data-cat="minors">🔀 Minors (Crosses)</button>
-          <button class="cat-pill" data-cat="exotics">🌍 Exotics</button>
+          <button class="cat-pill active" data-cat="all" type="button">🌐 All Forex Pairs (28+)</button>
+          <button class="cat-pill" data-cat="majors" type="button">👑 Majors</button>
+          <button class="cat-pill" data-cat="minors" type="button">🔀 Minors (Crosses)</button>
+          <button class="cat-pill" data-cat="exotics" type="button">🌍 Exotics</button>
         </div>
       </div>
 
+      <!-- Grid Cards View -->
       <div class="scanner-cards" id="scannerCards">
         <div class="scanner-loading">Scanning Binance pairs...</div>
+      </div>
+
+      <!-- Detailed Table View ("List Down Coin & Anything") -->
+      <div class="scanner-table-container" id="scannerTableContainer" style="display: none;">
+        <div class="table-responsive">
+          <table class="scanner-table" id="scannerTable">
+            <thead>
+              <tr>
+                <th>Asset / Pair</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>24h Change</th>
+                <th>AI Signal</th>
+                <th>Grade</th>
+                <th>Structure</th>
+                <th>RSI (14)</th>
+                <th>Targets (TP / SL)</th>
+                <th>Risk : Reward</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="scannerTableBody">
+              <tr><td colspan="11" class="scanner-table-loading">Loading comprehensive asset table...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
 
@@ -521,6 +576,80 @@
       </div>
       <div class="disclaimer">⚠️ Trading cryptocurrency involves high market risk. Signals and calculations are quantitative tools for decision support and risk discipline.</div>
     </footer>
+  </div>
+
+  <!-- MARKET & INSTRUMENT EXPLORER MODAL (TWO OPTIONS: CRYPTO & FOREX) -->
+  <div id="marketExplorerModal" class="modal-overlay" style="display: none;">
+    <div class="modal-card explorer-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-icon">🌐</span>
+          <div>
+            <h3 class="modal-title">Market &amp; Instrument Explorer</h3>
+            <span class="modal-subtitle">Browse full coin &amp; forex universe with live quotes, 24h performance &amp; signal intelligence</span>
+          </div>
+        </div>
+        <button id="explorerCloseBtn" class="modal-close-btn" title="Close Explorer">&times;</button>
+      </div>
+
+      <!-- TWO OPTIONS: OPTION 1 (CRYPTO) vs OPTION 2 (FOREX) -->
+      <div class="explorer-market-tabs">
+        <button class="exp-market-tab active" data-exp-market="crypto" id="expTabCrypto" type="button">
+          <span class="tab-emoji">🪙</span>
+          <div class="tab-text-wrap">
+            <span class="tab-title">Option 1: Crypto Market</span>
+            <span class="tab-subtitle">50+ Liquid Coins &amp; Tokens (Binance Public Feed)</span>
+          </div>
+          <span class="tab-active-indicator">ACTIVE</span>
+        </button>
+        <button class="exp-market-tab" data-exp-market="forex" id="expTabForex" type="button">
+          <span class="tab-emoji">💱</span>
+          <div class="tab-text-wrap">
+            <span class="tab-title">Option 2: Forex Market</span>
+            <span class="tab-subtitle">28+ Currency Pairs (Majors, Minors, Exotics)</span>
+          </div>
+          <span class="tab-active-indicator">ACTIVE</span>
+        </button>
+      </div>
+
+      <!-- Toolbar: Search input & category pills -->
+      <div class="explorer-toolbar">
+        <div class="explorer-search-wrap">
+          <span class="search-symbol-icon">🔍</span>
+          <input type="text" id="explorerSearchInput" placeholder="Filter by symbol or sector (e.g. BTC, SOL, EUR, JPY, AI)..." autocomplete="off" />
+          <button id="explorerClearSearch" class="btn-clear-search" type="button" style="display: none;" title="Clear Search">&times;</button>
+        </div>
+        <div class="explorer-category-pills" id="explorerCategoryPills">
+          <!-- Dynamically populated category filter pills -->
+        </div>
+      </div>
+
+      <!-- Meta stats bar -->
+      <div class="explorer-meta-bar">
+        <span class="explorer-count-badge" id="explorerCountText">Loading instruments...</span>
+        <span class="explorer-hint-text" id="explorerFeedNote">Click any instrument to load chart, AI signals &amp; MTF matrix</span>
+      </div>
+
+      <!-- Scrollable Assets Table -->
+      <div class="explorer-table-wrap">
+        <table class="explorer-table" id="explorerTable">
+          <thead>
+            <tr>
+              <th>Asset / Symbol</th>
+              <th>Category</th>
+              <th>Last Price</th>
+              <th>24h Change</th>
+              <th>24h High / Low</th>
+              <th>24h Volume</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="explorerTableBody">
+            <tr><td colspan="7" class="explorer-loading-row">Fetching real-time market data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <!-- INTERACTIVE POSITION SIZE & RISK CALCULATOR MODAL (FEATURE 1) -->

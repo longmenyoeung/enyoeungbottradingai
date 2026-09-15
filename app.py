@@ -264,13 +264,23 @@ async def get_sentiment(market: str = Query("crypto", description="crypto | fore
 async def get_symbols(
     category: Optional[str] = Query(None, description="Optional category filter"),
     market: str = Query("crypto", description="crypto | forex"),
+    limit: int = Query(60, description="Max symbols to return"),
 ):
-    """Returns categorized active Binance USDT pairs or forex currency pairs."""
+    """Returns categorized active Binance USDT pairs or forex currency pairs with 24h stats."""
     mkt = _normalize_market(market)
+    cat_clean = None
+    if category and isinstance(category, str) and category.strip().lower() not in ("none", "all", ""):
+        cat_clean = category.strip().lower()
+
+    try:
+        limit_int = int(limit)
+    except (ValueError, TypeError):
+        limit_int = 60
 
     if mkt == MARKET_FOREX:
+        max_fx = min(max(1, limit_int), len(DEFAULT_FOREX_WATCHLIST))
         try:
-            pairs = await get_top_forex_pairs(limit=len(DEFAULT_FOREX_WATCHLIST), category=category)
+            pairs = await get_top_forex_pairs(limit=max_fx, category=cat_clean)
             return {
                 "success": True,
                 "market": mkt,
@@ -279,20 +289,20 @@ async def get_symbols(
                 "total": len(pairs),
             }
         except Exception as e:
-            fallback = FOREX_CATEGORIES.get(category, DEFAULT_FOREX_WATCHLIST) if category and category != "all" else DEFAULT_FOREX_WATCHLIST
+            fallback = FOREX_CATEGORIES.get(cat_clean, DEFAULT_FOREX_WATCHLIST) if cat_clean else DEFAULT_FOREX_WATCHLIST
             return {
                 "success": False,
                 "market": mkt,
                 "symbols": [
                     {"symbol": s, "price": 0.0, "change24h": 0.0, "category": get_category_for_forex_pair(s)}
-                    for s in fallback
+                    for s in fallback[:max_fx]
                 ],
                 "categories": list(FOREX_CATEGORIES.keys()),
                 "error": str(e),
             }
 
     try:
-        symbols = await get_top_symbols(limit=60, category=category)
+        symbols = await get_top_symbols(limit=max(1, limit_int), category=cat_clean)
         return {
             "success": True,
             "market": mkt,
@@ -301,11 +311,11 @@ async def get_symbols(
             "total": len(symbols),
         }
     except Exception as e:
-        fallback = COIN_CATEGORIES.get(category, DEFAULT_WATCHLIST) if category and category != "all" else DEFAULT_WATCHLIST
+        fallback = COIN_CATEGORIES.get(cat_clean, DEFAULT_WATCHLIST) if cat_clean else DEFAULT_WATCHLIST
         return {
             "success": False,
             "market": mkt,
-            "symbols": [{"symbol": s, "price": 0.0, "change24h": 0.0, "category": get_category_for_symbol(s)} for s in fallback],
+            "symbols": [{"symbol": s, "price": 0.0, "change24h": 0.0, "category": get_category_for_symbol(s)} for s in fallback[:limit_int]],
             "categories": list(COIN_CATEGORIES.keys()),
             "error": str(e),
         }

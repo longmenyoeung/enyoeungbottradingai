@@ -2654,3 +2654,652 @@ body.market-forex .live-pulse .pulse-dot {
   }
 }
 
+/* ==========================================================================
+   FEATURE: TWO OPTIONS (CRYPTO & FOREX) & ASSET DIRECTORY STYLES
+   ========================================================================== */
+
+/* Clickable active pair pill */
+.active-pair-pill.clickable-pill {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.active-pair-pill.clickable-pill:hover {
+  border-color: var(--color-blue);
+  background: rgba(56, 189, 248, 0.1);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+  transform: translateY(-1px);
+}
+
+body.market-forex .active-pair-pill.clickable-pill:hover {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+}
+
+.pill-chevron {
+  font-size: 8.5px;
+  color: var(--text-secondary);
+  margin-left: 3px;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.active-pair-pill.clickable-pill:hover .pill-chevron {
+  color: var(--color-blue);
+  transform: translateY(1px);
+}
+
+body.market-forex .active-pair-pill.clickable-pill:hover .pill-chevron {
+  color: #f59e0b;
+}
+
+/* Header Explorer trigger button */
+.btn-explorer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.16), rgba(245, 158, 11, 0.16));
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  white-space: nowrap;
+}
+
+.btn-explorer:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3), rgba(245, 158, 11, 0.3));
+  border-color: var(--color-blue);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Switcher bar enhancements */
+.market-switcher-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-directory-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-directory-quick:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Scanner Header & Two Options Badge */
+.scanner-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.market-option-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--color-blue);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+body.market-forex .market-option-badge {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+
+.scanner-controls-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* View Switcher (Cards vs Table) */
+.view-switch-group {
+  display: flex;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 3px;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.view-btn.active {
+  background: var(--color-blue);
+  color: #080c14;
+  font-weight: 700;
+  box-shadow: 0 0 10px var(--color-blue-glow);
+}
+
+body.market-forex .view-btn.active {
+  background: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.45);
+}
+
+/* ==========================================================================
+   DETAILED FINANCIAL TABLE VIEW (LIST DOWN COIN & FOREX DETAILS)
+   ========================================================================== */
+.scanner-table-container {
+  margin-top: 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scanner-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.scanner-table th {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.scanner-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  vertical-align: middle;
+  transition: background 0.18s ease;
+}
+
+.scanner-table tbody tr {
+  cursor: pointer;
+}
+
+.scanner-table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.06);
+}
+
+body.market-forex .scanner-table tbody tr:hover {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.scanner-table .sym-cell {
+  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scanner-table .sym-icon {
+  font-size: 14px;
+}
+
+.scanner-table .cat-cell {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.scanner-table .price-cell {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.scanner-table .change-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.change-pill.positive {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--color-green-light);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.change-pill.negative {
+  background: rgba(244, 63, 94, 0.14);
+  color: var(--color-red-light);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.change-pill.neutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.scanner-table .signal-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.scanner-table .btn-table-analyze {
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  color: var(--color-blue);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.scanner-table .btn-table-analyze:hover {
+  background: var(--color-blue);
+  color: #080c14;
+  box-shadow: 0 0 10px var(--color-blue-glow);
+}
+
+body.market-forex .scanner-table .btn-table-analyze {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+
+body.market-forex .scanner-table .btn-table-analyze:hover {
+  background: #f59e0b;
+  color: #080c14;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+.scanner-table-loading {
+  text-align: center;
+  padding: 30px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ==========================================================================
+   MARKET & INSTRUMENT EXPLORER MODAL (OPTION 1 CRYPTO vs OPTION 2 FOREX)
+   ========================================================================== */
+.explorer-modal-card {
+  width: 94%;
+  max-width: 960px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: #0d131f;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.15);
+  overflow: hidden;
+}
+
+body.market-forex .explorer-modal-card {
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(245, 158, 11, 0.15);
+}
+
+/* Big Two Option Tabs */
+.explorer-market-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px 20px 10px 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.exp-market-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.exp-market-tab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.exp-market-tab .tab-emoji {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.exp-market-tab .tab-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.exp-market-tab .tab-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.exp-market-tab .tab-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.exp-market-tab .tab-active-indicator {
+  display: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.exp-market-tab.active[data-exp-market="crypto"] {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(56, 189, 248, 0.15));
+  border-color: var(--color-blue);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+}
+
+.exp-market-tab.active[data-exp-market="crypto"] .tab-active-indicator {
+  display: block;
+  background: var(--color-blue);
+  color: #080c14;
+}
+
+.exp-market-tab.active[data-exp-market="forex"] {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.25), rgba(245, 158, 11, 0.15));
+  border-color: #f59e0b;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.35);
+}
+
+.exp-market-tab.active[data-exp-market="forex"] .tab-active-indicator {
+  display: block;
+  background: #f59e0b;
+  color: #080c14;
+}
+
+/* Explorer Toolbar */
+.explorer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.015);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.explorer-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.explorer-search-wrap .search-symbol-icon {
+  position: absolute;
+  left: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.explorer-search-wrap input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: #ffffff;
+  padding: 8px 30px 8px 32px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.explorer-search-wrap input:focus {
+  border-color: var(--color-blue);
+  box-shadow: 0 0 10px var(--color-blue-glow);
+}
+
+body.market-forex .explorer-search-wrap input:focus {
+  border-color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
+}
+
+.btn-clear-search {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.btn-clear-search:hover {
+  color: #ffffff;
+}
+
+.explorer-category-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.exp-cat-pill {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exp-cat-pill:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.exp-cat-pill.active {
+  background: var(--color-blue);
+  color: #080c14;
+  font-weight: 700;
+  border-color: var(--color-blue);
+}
+
+body.market-forex .exp-cat-pill.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+
+/* Meta bar */
+.explorer-meta-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 20px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.explorer-count-badge {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* Explorer Table */
+.explorer-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 55vh;
+}
+
+.explorer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.explorer-table th {
+  position: sticky;
+  top: 0;
+  background: #0d131f;
+  padding: 10px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 2;
+}
+
+.explorer-table td {
+  padding: 10px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  vertical-align: middle;
+}
+
+.explorer-table tbody tr {
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.explorer-table tbody tr:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.explorer-loading-row {
+  text-align: center;
+  padding: 40px !important;
+  color: var(--text-secondary);
+}
+
+.exp-sym-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exp-sym-icon {
+  font-size: 16px;
+}
+
+.exp-select-btn {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  border: none;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exp-select-btn:hover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+  transform: translateY(-1px);
+}
+
+body.market-forex .exp-select-btn {
+  background: linear-gradient(135deg, #d97706, #b45309);
+}
+
+body.market-forex .exp-select-btn:hover {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+@media (max-width: 768px) {
+  .explorer-market-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .explorer-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+

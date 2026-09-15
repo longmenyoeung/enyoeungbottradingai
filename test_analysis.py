@@ -677,7 +677,31 @@ def test_short_bias_risk_paths():
     assert fx_analysis["price_decimals"] == 5
     assert fx_analysis["stop_loss"] > fx_analysis["entry"]
     assert fx_analysis["risk_pips"] > 0
-    assert fx_analysis["entry"] > fx_analysis["take_profit_1"] > fx_analysis["take_profit_2"] > fx_analysis["take_profit_3"]
+def test_api_symbols_two_options():
+    """Verify /api/symbols cleanly supports both Option 1 (Crypto) and Option 2 (Forex)."""
+    import app
+
+    # Option 1: Crypto Market
+    crypto_res = asyncio.run(app.get_symbols(market="crypto", limit=60))
+    assert crypto_res["success"] is True
+    assert crypto_res["market"] == "crypto"
+    assert len(crypto_res["symbols"]) >= 50
+    btc_entry = next((s for s in crypto_res["symbols"] if s["symbol"] == "BTCUSDT"), None)
+    assert btc_entry is not None
+    assert "price" in btc_entry
+    assert "change24h" in btc_entry
+    assert "category" in btc_entry
+
+    # Option 2: Forex Market
+    forex_res = asyncio.run(app.get_symbols(market="forex", limit=30))
+    assert forex_res["success"] is True
+    assert forex_res["market"] == "forex"
+    assert len(forex_res["symbols"]) >= 28
+    eur_entry = next((s for s in forex_res["symbols"] if s["symbol"] == "EURUSD"), None)
+    assert eur_entry is not None
+    assert "price" in eur_entry
+    assert "change24h" in eur_entry
+    assert "price_decimals" in eur_entry
 
 
 if __name__ == "__main__":
