@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Men Trading - AI Crypto Chart Analysis & Signal Terminal</title>
-  <meta name="description" content="Men Trading: Real-time Binance cryptocurrency chart analysis with automated Entry, Take Profit, Stop Loss, Multi-Timeframe Confluence, and Position Size Risk Calculator.">
+  <title>Men Trading - AI Crypto & Forex Chart Analysis & Signal Terminal</title>
+  <meta name="description" content="Men Trading: Real-time crypto & forex chart analysis with automated Entry, Take Profit, Stop Loss, Multi-Timeframe Confluence, DXY/VIX sentiment and Position Size Risk Calculator.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -25,7 +25,7 @@
           </div>
           <div class="brand-text">
             <h1 class="brand-title">MEN TRADING</h1>
-            <span class="brand-tag">AI Quantitative Crypto Terminal</span>
+            <span class="brand-tag">AI Quantitative Crypto &amp; Forex Terminal</span>
           </div>
         </div>
 
@@ -98,6 +98,33 @@
       </div>
     </header>
 
+    <!-- MARKET SWITCHER (Crypto / Forex) -->
+    <section class="market-switcher-bar card" id="marketSwitcherBar">
+      <div class="market-switcher" id="marketSwitcher">
+        <button class="market-tab active" data-market="crypto" type="button">
+          <span class="market-tab-icon">🪙</span>
+          <span class="market-tab-text">Crypto</span>
+        </button>
+        <button class="market-tab" data-market="forex" type="button">
+          <span class="market-tab-icon">💱</span>
+          <span class="market-tab-text">Forex</span>
+        </button>
+      </div>
+      <div class="market-switcher-meta">
+        <span class="market-feed-badge" id="marketFeedBadge">Binance Public Feed</span>
+        <span class="market-hours-badge open" id="marketHoursBadge">24 / 7 Open</span>
+      </div>
+    </section>
+
+    <!-- FOREX MARKET CLOSED BANNER (weekends & holidays) -->
+    <div class="market-closed-banner" id="marketClosedBanner" style="display: none;">
+      <span class="closed-pulse-dot"></span>
+      <span>🕐 <strong>Forex Market Closed</strong> — <span id="marketClosedText">FX reopens Sunday 21:00 UTC.</span></span>
+    </div>
+
+    <!-- SESSION INDICATOR STRIP (Forex only) -->
+    <div class="session-strip" id="sessionStrip" style="display: none;"></div>
+
     <!-- MULTI-TIMEFRAME CONFLUENCE MATRIX (FEATURE 2) -->
     <section class="mtf-section card">
       <div class="mtf-header">
@@ -153,7 +180,7 @@
         <div id="tvChartContainer" class="chart-canvas-container">
           <div class="chart-loading" id="chartLoading">
             <div class="spinner"></div>
-            <span>Fetching Binance Market Data...</span>
+            <span id="chartLoadingText">Fetching Binance Market Data...</span>
           </div>
         </div>
 
@@ -302,13 +329,15 @@
     <!-- MARKET SENTIMENT INTELLIGENCE WIDGET -->
     <section class="sentiment-section card" id="sentimentSection">
       <div class="sentiment-header">
-        <div class="section-badge">MARKET INTELLIGENCE</div>
-        <h3 class="sentiment-title">Global Crypto Sentiment</h3>
+        <div class="section-badge" id="sentimentBadge">MARKET INTELLIGENCE</div>
+        <h3 class="sentiment-title" id="sentimentTitle">Global Crypto Sentiment</h3>
       </div>
-      <div class="sentiment-grid">
+
+      <!-- CRYPTO SENTIMENT PANEL (Fear & Greed + Global + Trending) -->
+      <div class="sentiment-grid" id="cryptoSentimentPanel">
         <!-- Fear & Greed Gauge -->
         <div class="fng-gauge-wrap">
-          <div class="fng-label">Fear & Greed Index</div>
+          <div class="fng-label">Fear &amp; Greed Index</div>
           <div class="fng-gauge">
             <div class="fng-bar">
               <div class="fng-fill" id="fngFill" style="width: 50%"></div>
@@ -351,14 +380,67 @@
           </div>
         </div>
       </div>
+
+      <!-- FOREX SENTIMENT PANEL (DXY strength + VIX regime + session) -->
+      <div class="sentiment-grid forex-sentiment-grid" id="forexSentimentPanel" style="display: none;">
+        <!-- DXY Dollar Strength Gauge -->
+        <div class="fng-gauge-wrap">
+          <div class="fng-label">DXY — US Dollar Strength</div>
+          <div class="fng-gauge">
+            <div class="fng-bar">
+              <div class="fng-fill" id="dxyFill" style="width: 50%"></div>
+              <div class="fng-pointer" id="dxyPointer" style="left: 50%"></div>
+            </div>
+            <div class="fng-scale">
+              <span>0 Weak USD</span>
+              <span>50 Balanced</span>
+              <span>100 Strong USD</span>
+            </div>
+          </div>
+          <div class="fng-value-wrap">
+            <span class="fng-value" id="dxyValue">50</span>
+            <span class="fng-class" id="dxyClass">Balanced Dollar</span>
+          </div>
+          <div class="fng-advice" id="dxyAdvice">Loading dollar index data...</div>
+        </div>
+
+        <!-- VIX Volatility Regime -->
+        <div class="global-stats-wrap">
+          <div class="global-stat">
+            <span class="gs-label">VIX Volatility</span>
+            <span class="gs-value" id="vixValue">--</span>
+          </div>
+          <div class="global-stat">
+            <span class="gs-label">Risk Regime</span>
+            <span class="gs-value" id="vixRegime">--</span>
+          </div>
+          <div class="global-stat">
+            <span class="gs-label">USD Bias</span>
+            <span class="gs-value" id="usdBias">--</span>
+          </div>
+          <div class="global-stat">
+            <span class="gs-label">FX Liquidity</span>
+            <span class="gs-value" id="fxLiquidity">--</span>
+          </div>
+          <div class="fx-context-note" id="fxContextNote">Loading FX macro context...</div>
+        </div>
+
+        <!-- Active FX Sessions -->
+        <div class="trending-wrap">
+          <div class="trending-label">🕐 Active FX Sessions</div>
+          <div class="trending-coins" id="fxSessionBadges">
+            <span class="trending-placeholder">Loading sessions...</span>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- BOTTOM ROW: MARKET SCANNER & 50+ COINS WATCHLIST -->
     <section class="scanner-section card">
       <div class="scanner-header">
         <div class="scanner-title-wrap">
-          <h3 class="scanner-title">Men Trading Multi-Coin Scanner</h3>
-          <span class="scanner-desc">Real-time scan across 50+ liquid crypto assets & sectors</span>
+          <h3 class="scanner-title" id="scannerTitle">Men Trading Multi-Coin Scanner</h3>
+          <span class="scanner-desc" id="scannerDesc">Real-time scan across 50+ liquid crypto assets & sectors</span>
         </div>
         
         <!-- Signal Filter (All, Buy, Sell) -->
@@ -369,14 +451,22 @@
         </div>
       </div>
 
-      <!-- Category Filter Pills (Feature 1: 50+ Coins) -->
+      <!-- Category Filter Pills (crypto sectors & forex pair groups) -->
       <div class="category-tabs-bar" id="categoryTabs">
-        <button class="cat-pill active" data-cat="all">🌐 All Assets (50+)</button>
-        <button class="cat-pill" data-cat="majors">👑 Majors</button>
-        <button class="cat-pill" data-cat="layer1_2">⚡ Layer 1/2</button>
-        <button class="cat-pill" data-cat="defi">🏦 DeFi</button>
-        <button class="cat-pill" data-cat="ai">🧠 AI & Data</button>
-        <button class="cat-pill" data-cat="memes">🚀 Trending Memes</button>
+        <div class="category-pills" id="cryptoCategoryPills">
+          <button class="cat-pill active" data-cat="all">🌐 All Assets (50+)</button>
+          <button class="cat-pill" data-cat="majors">👑 Majors</button>
+          <button class="cat-pill" data-cat="layer1_2">⚡ Layer 1/2</button>
+          <button class="cat-pill" data-cat="defi">🏦 DeFi</button>
+          <button class="cat-pill" data-cat="ai">🧠 AI & Data</button>
+          <button class="cat-pill" data-cat="memes">🚀 Trending Memes</button>
+        </div>
+        <div class="category-pills" id="forexCategoryPills" style="display: none;">
+          <button class="cat-pill active" data-cat="all">🌐 All Pairs (28+)</button>
+          <button class="cat-pill" data-cat="majors">👑 Majors</button>
+          <button class="cat-pill" data-cat="minors">🔀 Minors (Crosses)</button>
+          <button class="cat-pill" data-cat="exotics">🌍 Exotics</button>
+        </div>
       </div>
 
       <div class="scanner-cards" id="scannerCards">
@@ -425,7 +515,7 @@
       <div class="footer-left">
         <span class="footer-brand">MEN TRADING AI TERMINAL</span>
         <span class="divider-dot">•</span>
-        <span>Real-Time Binance Public Market Stream</span>
+        <span id="footerFeedText">Real-Time Binance Public Market Stream</span>
         <span class="divider-dot">•</span>
         <span class="admin-credit">Created by <a href="https://github.com/longmenyoeung" target="_blank" rel="noopener noreferrer">Menyoeung Long</a></span>
       </div>
@@ -454,6 +544,11 @@
             <span class="sync-symbol" id="calcSyncSymbol">BTCUSDT</span>
             <span class="sync-dir" id="calcSyncDir">LONG</span>
             <button id="calcSyncBtn" class="btn-mini-sync" title="Sync live prices from chart">🔄 Resync</button>
+          </div>
+
+          <!-- Forex pip sizing hint (visible in Forex mode only) -->
+          <div class="forex-pip-hint" id="forexPipHint" style="display: none;">
+            💱 <strong>FX pip sizing:</strong> 1 pip = 0.0001 (0.01 on JPY pairs). Position size is expressed in base-currency units.
           </div>
 
           <div class="input-group">

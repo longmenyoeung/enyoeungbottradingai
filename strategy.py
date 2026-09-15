@@ -12,11 +12,17 @@ Layers:
 5. Momentum (RSI + MACD)
 6. Bollinger Squeeze & Volatility
 7. Entry Timing Quality (pullback detection)
-8. Sentiment Context (Fear & Greed)
+8. Sentiment Context (Fear & Greed for crypto, DXY/VIX/session for forex)
+
+Asset-class aware: pass asset_class="forex" for FX pairs to use wider ATR stops,
+tighter entry bands and reduced tick-volume weighting (see ASSET_CLASS_PARAMS).
 """
 
 from typing import Any, Dict, List, Optional
 import numpy as np
+
+from forex_client import forex_pip_size as _forex_pip_size
+from forex_client import forex_price_decimals as _forex_price_decimals
 
 
 # =============================================================================
@@ -31,6 +37,53 @@ GRADE_THRESHOLDS = {
 }
 
 MINIMUM_RR_RATIO = 1.5  # Minimum Risk:Reward ratio to issue a trade signal
+
+# =============================================================================
+# ASSET-CLASS PROFILES
+# Crypto trades 24/7 with high volatility (ATR is large relative to price) while
+# Forex trades 5 days a week with much lower volatility. Stops, entry bands and
+# the trust placed in volume therefore differ per asset class.
+#
+# NOTE ON VOLUME: FX feeds expose *tick volume* (quote updates), not real traded
+# volume, so the volume layer score is scaled by "volume_reliability" instead of
+# being removed. Layer weights still total 100 points for both asset classes.
+# =============================================================================
+ASSET_CLASS_PARAMS: Dict[str, Dict[str, Any]] = {
+    "crypto": {
+        "label": "Binance Crypto",
+        "atr_sl_multiplier": 1.5,
+        "min_stop_pct": 0.008,
+        "fallback_stop_pct": 0.018,
+        "max_stop_pct": 0.06,
+        "swing_buffer": 0.002,
+        "ema20_entry_band": 0.003,
+        "ema50_entry_band": 0.005,
+        "late_entry_dist_pct": 2.5,
+        "volume_reliability": 1.0,
+    },
+    "forex": {
+        "label": "Forex (FX)",
+        "atr_sl_multiplier": 2.0,   # wider stops: FX ATR is far smaller than crypto ATR
+        "min_stop_pct": 0.0015,     # ≈15 pips on EURUSD
+        "fallback_stop_pct": 0.0075,
+        "max_stop_pct": 0.025,
+        "swing_buffer": 0.0007,
+        "ema20_entry_band": 0.0005,  # ≈5 pips of pullback tolerance
+        "ema50_entry_band": 0.001,   # ≈10 pips
+        "late_entry_dist_pct": 0.6,
+        "volume_reliability": 0.55,  # provider volume is tick volume, not real volume
+    },
+}
+
+VALID_ASSET_CLASSES = tuple(ASSET_CLASS_PARAMS.keys())
+
+
+def _asset_params(asset_class: str = "crypto") -> Dict[str, Any]:
+    """Returns the parameter profile for an asset class (crypto is the safe default)."""
+    key = str(asset_class or "crypto").lower().strip()
+    if key not in ASSET_CLASS_PARAMS:
+        key = "crypto"
+    return dict(ASSET_CLASS_PARAMS[key])
 
 
 def _price_decimals(price: float) -> int:
@@ -56,11 +109,71 @@ def _fmt_price(value: float) -> str:
     return f"{value:,.{_price_decimals(value)}f}"
 
 
+def _asset_price_decimals(price: float, symbol: str, asset_class: str) -> int:
+    """Quote precision: pip precision (5 / 3 decimals) for FX, magnitude-based for crypto."""
+    if asset_class == "forex":
+        return _forex_price_decimals(symbol)
+    return _price_decimals(price)
+
+
+def _fmt_asset_price(value: float, price_decimals: Optional[int] = None) -> str:
+    """Formats a price with an explicit precision (pip-aware) or the magnitude default."""
+    if price_decimals is None:
+        return _fmt_price(value)
+    return f"{value:,.{price_decimals}f}"
+
+
+def _to_pips(distance: float, symbol: str, pip_size: float) -> float:
+    """Converts a raw price distance into pips."""
+    if not pip_size:
+        return 0.0
+    return round(abs(float(distance)) / pip_size, 1)
+
+
+def _describe_forex_context(forex_context: Dict[str, Any], symbol: str) -> List[str]:
+    """Builds FX-specific sentiment/context reason strings from forex_sentiment output."""
+    lines: List[str] = []
+    if not forex_context:
+        return lines
+
+    dxy_value = forex_context.get("dxy_value", 0.0)
+    dxy_change = forex_context.get("dxy_change_pct", 0.0)
+    dxy_class = forex_context.get("dxy_classification", "Balanced Dollar")
+    usd_leg = "base" if forex_context.get("usd_is_base") else (
+        "quote" if forex_context.get("usd_is_quote") else "cross"
+    )
+    lines.append(
+        f"💵 DXY {dxy_value} ({dxy_change:+.2f}%) — {dxy_class}; USD is the {usd_leg} leg of {symbol}"
+    )
+
+    vix_value = forex_context.get("vix_value", 0.0)
+    vix_zone = forex_context.get("vix_zone", "CALM")
+    vix_regime = forex_context.get("vix_regime", "MIXED")
+    lines.append(f"😨 VIX {vix_value} — {vix_zone} ({vix_regime} volatility regime)")
+
+    session = forex_context.get("session") or {}
+    if session.get("is_open"):
+        labels = ", ".join(s.get("label", "") for s in session.get("active_sessions", []))
+        lines.append(
+            f"🕐 FX session: {labels or session.get('primary_session', '')} "
+            f"({session.get('liquidity', 'UNKNOWN')} liquidity)"
+        )
+    else:
+        lines.append(f"🕐 FX market closed — {session.get('description', 'Market closed')}")
+
+    note = forex_context.get("rate_differential_note", "")
+    if note:
+        lines.append(f"🏦 {note}")
+
+    return lines
+
+
 def analyze_market_signals(
     candles: List[Dict[str, Any]],
     indicators: Dict[str, Any],
     symbol: str = "BTCUSDT",
     sentiment: Optional[Dict[str, Any]] = None,
+    asset_class: str = "crypto",
 ) -> Dict[str, Any]:
     """
     Professional 8-layer confluence analysis engine.
@@ -71,14 +184,26 @@ def analyze_market_signals(
     - Dynamic SL/TP from swing structure
     - Human-readable narrative explaining the trade thesis
     - Detailed scoring breakdown per layer
+
+    asset_class: "crypto" (24/7, high volatility) or "forex" (5-day week, low
+    volatility). FX runs with wider ATR-based stops, tighter entry bands and a
+    reduced tick-volume weighting, plus DXY / VIX / session context when provided
+    via `sentiment` (see forex_sentiment.build_forex_sentiment_for_pair).
     """
 
+    params = _asset_params(asset_class)
+    asset_class = "forex" if str(asset_class).lower().strip() == "forex" else "crypto"
+
     if not candles or len(candles) < 30:
-        return _insufficient_data(symbol)
+        return _insufficient_data(symbol, asset_class)
 
     latest = candles[-1]
     prev = candles[-2]
     price = latest["close"]
+
+    # Asset-class aware quote precision / pip sizing (FX: 5 or 3 decimals)
+    dp_hint = _asset_price_decimals(price, symbol, asset_class)
+    pip_size: Optional[float] = _forex_pip_size(symbol) if asset_class == "forex" else None
 
     # Extract indicator values
     rsi_list = [x for x in indicators["rsi"] if x is not None]
@@ -183,9 +308,24 @@ def analyze_market_signals(
     if vol_profile.get("is_climactic"):
         reasons.append("⚠️ Climactic Volume: Extremely high volume may signal exhaustion / trend reversal")
 
+    # FX providers publish tick volume (quote-update counts), not real traded volume,
+    # so the layer is scaled by the asset-class reliability factor instead of removed.
+    vol_reliability = float(params["volume_reliability"])
+    if vol_reliability != 1.0:
+        vol_bull *= vol_reliability
+        vol_bear *= vol_reliability
+        reasons.append(
+            "📊 Volume weight reduced: FX feed provides tick volume, not real traded volume"
+        )
+
     bull_score += min(vol_bull, 15)
     bear_score += min(vol_bear, 15)
-    layer_scores["volume"] = {"bull": round(vol_bull, 1), "bear": round(vol_bear, 1), "max": 15}
+    layer_scores["volume"] = {
+        "bull": round(vol_bull, 1),
+        "bear": round(vol_bear, 1),
+        "max": 15,
+        "reliability": vol_reliability,
+    }
 
     # =========================================================================
     # LAYER 3: CANDLESTICK PATTERNS (10 points max)
@@ -335,43 +475,46 @@ def analyze_market_signals(
 
     # Check if price is at a pullback to EMA (ideal entry) vs extended/chasing
     ema20_dist_pct = abs(price - curr_ema20) / price * 100 if price > 0 else 0
+    ema20_band = params["ema20_entry_band"]
+    ema50_band = params["ema50_entry_band"]
+    late_entry_pct = params["late_entry_dist_pct"]
 
     if bull_score > bear_score:
         # For a bullish signal: best entry is at or near EMA 20/50 support
-        if price <= curr_ema20 * 1.003:
+        if price <= curr_ema20 * (1 + ema20_band):
             entry_bull += 7
             entry_quality = "EXCELLENT"
-            entry_strategy = f"Ideal entry — price at EMA20 support (${_fmt_price(curr_ema20)}). Enter now."
+            entry_strategy = f"Ideal entry — price at EMA20 support (${_fmt_asset_price(curr_ema20, dp_hint)}). Enter now."
             reasons.append(f"🎯 Entry Timing: Excellent — price pulling back to EMA20 support zone")
-        elif price <= curr_ema50 * 1.005:
+        elif price <= curr_ema50 * (1 + ema50_band):
             entry_bull += 5
             entry_quality = "GOOD"
-            entry_strategy = f"Good entry — price near EMA50 support (${_fmt_price(curr_ema50)})."
+            entry_strategy = f"Good entry — price near EMA50 support (${_fmt_asset_price(curr_ema50, dp_hint)})."
             reasons.append(f"🎯 Entry Timing: Good — price near EMA50 support")
-        elif ema20_dist_pct > 2.5:
+        elif ema20_dist_pct > late_entry_pct:
             entry_quality = "LATE"
-            entry_strategy = f"⚠️ Late entry — price is {ema20_dist_pct:.1f}% above EMA20. Consider waiting for pullback to ${_fmt_price(curr_ema20)}."
-            reasons.append(f"⚠️ Entry Timing: Late — price extended {ema20_dist_pct:.1f}% above EMA20. Pullback risk.")
+            entry_strategy = f"⚠️ Late entry — price is {ema20_dist_pct:.2f}% above EMA20. Consider waiting for pullback to ${_fmt_asset_price(curr_ema20, dp_hint)}."
+            reasons.append(f"⚠️ Entry Timing: Late — price extended {ema20_dist_pct:.2f}% above EMA20. Pullback risk.")
         else:
             entry_bull += 3
             entry_quality = "FAIR"
             entry_strategy = f"Fair entry — price moderately above EMA20. Acceptable for trend following."
     else:
         # For a bearish signal: best short entry is at or near EMA 20/50 resistance
-        if price >= curr_ema20 * 0.997:
+        if price >= curr_ema20 * (1 - ema20_band):
             entry_bear += 7
             entry_quality = "EXCELLENT"
-            entry_strategy = f"Ideal short entry — price at EMA20 resistance (${_fmt_price(curr_ema20)}). Enter now."
+            entry_strategy = f"Ideal short entry — price at EMA20 resistance (${_fmt_asset_price(curr_ema20, dp_hint)}). Enter now."
             reasons.append(f"🎯 Entry Timing: Excellent — price bouncing off EMA20 resistance")
-        elif price >= curr_ema50 * 0.995:
+        elif price >= curr_ema50 * (1 - ema50_band):
             entry_bear += 5
             entry_quality = "GOOD"
-            entry_strategy = f"Good short entry — price near EMA50 resistance (${_fmt_price(curr_ema50)})."
+            entry_strategy = f"Good short entry — price near EMA50 resistance (${_fmt_asset_price(curr_ema50, dp_hint)})."
             reasons.append(f"🎯 Entry Timing: Good — price near EMA50 resistance")
-        elif ema20_dist_pct > 2.5:
+        elif ema20_dist_pct > late_entry_pct:
             entry_quality = "LATE"
-            entry_strategy = f"⚠️ Late entry — price is {ema20_dist_pct:.1f}% below EMA20. Consider waiting for rally to ${_fmt_price(curr_ema20)}."
-            reasons.append(f"⚠️ Entry Timing: Late — price extended {ema20_dist_pct:.1f}% below EMA20.")
+            entry_strategy = f"⚠️ Late entry — price is {ema20_dist_pct:.2f}% below EMA20. Consider waiting for rally to ${_fmt_asset_price(curr_ema20, dp_hint)}."
+            reasons.append(f"⚠️ Entry Timing: Late — price extended {ema20_dist_pct:.2f}% below EMA20.")
         else:
             entry_bear += 3
             entry_quality = "FAIR"
@@ -389,22 +532,23 @@ def analyze_market_signals(
     fng = sentiment.get("fear_greed", {}) if sentiment else {}
     fng_value = fng.get("value", 50)
     fng_zone = fng.get("zone", "NEUTRAL")
+    sentiment_label = "FX sentiment (DXY/VIX)" if asset_class == "forex" else "Sentiment"
 
     if fng_zone in ("EXTREME_FEAR",):
         sent_bull += 8
-        reasons.append(f"😱 Sentiment: Extreme Fear ({fng_value}/100) — historically the best time to buy (contrarian)")
+        reasons.append(f"😱 {sentiment_label}: Extreme Fear ({fng_value}/100) — historically the best time to buy (contrarian)")
     elif fng_zone == "FEAR":
         sent_bull += 5
-        reasons.append(f"😰 Sentiment: Fear ({fng_value}/100) — market is scared, contrarian buy opportunity")
+        reasons.append(f"😰 {sentiment_label}: Fear ({fng_value}/100) — market is scared, contrarian buy opportunity")
     elif fng_zone == "EXTREME_GREED":
         sent_bear += 8
-        reasons.append(f"🤑 Sentiment: Extreme Greed ({fng_value}/100) — euphoria, high risk of correction")
+        reasons.append(f"🤑 {sentiment_label}: Extreme Greed ({fng_value}/100) — euphoria, high risk of correction")
     elif fng_zone == "GREED":
         sent_bear += 4
-        reasons.append(f"🤩 Sentiment: Greed ({fng_value}/100) — market getting overconfident, tighten stops")
+        reasons.append(f"🤩 {sentiment_label}: Greed ({fng_value}/100) — market getting overconfident, tighten stops")
     elif fng_zone == "CAUTION":
         sent_bear += 2
-        reasons.append(f"⚠️ Sentiment: Cautious ({fng_value}/100)")
+        reasons.append(f"⚠️ {sentiment_label}: Cautious ({fng_value}/100)")
 
     global_mkt = sentiment.get("global_market", {}) if sentiment else {}
     mkt_cap_change = global_mkt.get("total_market_cap_change_24h", 0.0)
@@ -414,6 +558,11 @@ def analyze_market_signals(
     elif mkt_cap_change < -3.0:
         sent_bear += 2
         reasons.append(f"🌍 Global crypto market cap down {mkt_cap_change}% in 24h — bearish macro pressure")
+
+    # FX macro context: DXY dollar strength, VIX risk regime, active session
+    forex_context = sentiment.get("forex_context", {}) if sentiment else {}
+    if asset_class == "forex":
+        reasons.extend(_describe_forex_context(forex_context, symbol))
 
     bull_score += min(sent_bull, 10)
     bear_score += min(sent_bear, 10)
@@ -472,14 +621,21 @@ def analyze_market_signals(
     bb_upper_val = bb_upper_list[-1] if bb_upper_list else None
     bb_lower_val = bb_lower_list[-1] if bb_lower_list else None
 
+    # Asset-class risk parameters (shared by both LONG and SHORT setups)
+    atr_mult = params["atr_sl_multiplier"]
+    min_stop_pct = params["min_stop_pct"]
+    max_stop_pct = params["max_stop_pct"]
+    fallback_stop_pct = params["fallback_stop_pct"]
+    swing_buffer = params["swing_buffer"]
+
     if bias == "LONG":
         # SL below nearest swing low or ATR-based, whichever is tighter but safe
-        atr_sl = entry_price - max(1.5 * curr_atr, entry_price * 0.008)
-        swing_sl = max(swing_lows[-3:]) * 0.998 if len(swing_lows) >= 1 else atr_sl  # Just below swing low
+        atr_sl = entry_price - max(atr_mult * curr_atr, entry_price * min_stop_pct)
+        swing_sl = max(swing_lows[-3:]) * (1 - swing_buffer) if len(swing_lows) >= 1 else atr_sl  # Just below swing low
         calculated_sl = max(atr_sl, swing_sl)  # Use the higher (tighter) SL
 
-        if calculated_sl >= entry_price or (entry_price - calculated_sl) / entry_price > 0.06:
-            calculated_sl = entry_price - (entry_price * 0.018)
+        if calculated_sl >= entry_price or (entry_price - calculated_sl) / entry_price > max_stop_pct:
+            calculated_sl = entry_price - (entry_price * fallback_stop_pct)
 
         risk = entry_price - calculated_sl
 
@@ -499,12 +655,12 @@ def analyze_market_signals(
 
     else:
         # SHORT setup
-        atr_sl = entry_price + max(1.5 * curr_atr, entry_price * 0.008)
-        swing_sl = min(swing_highs[-3:]) * 1.002 if len(swing_highs) >= 1 else atr_sl
+        atr_sl = entry_price + max(atr_mult * curr_atr, entry_price * min_stop_pct)
+        swing_sl = min(swing_highs[-3:]) * (1 + swing_buffer) if len(swing_highs) >= 1 else atr_sl
         calculated_sl = min(atr_sl, swing_sl)
 
-        if calculated_sl <= entry_price or (calculated_sl - entry_price) / entry_price > 0.06:
-            calculated_sl = entry_price + (entry_price * 0.018)
+        if calculated_sl <= entry_price or (calculated_sl - entry_price) / entry_price > max_stop_pct:
+            calculated_sl = entry_price + (entry_price * fallback_stop_pct)
 
         risk = calculated_sl - entry_price
 
@@ -552,9 +708,12 @@ def analyze_market_signals(
     # TRADE MANAGEMENT (Trailing stop / breakeven plan)
     # =========================================================================
     if signal != "NEUTRAL" and rr_gate_passed:
+        pip_note = ""
+        if asset_class == "forex" and pip_size:
+            pip_note = f" (initial risk was {_to_pips(entry_price - calculated_sl, symbol, pip_size)} pips)"
         management_advice = (
-            f"Trade management: once TP1 (${_fmt_price(tp1)}) is hit, move the stop loss to breakeven "
-            f"(${_fmt_price(entry_price)}), then trail the remaining position toward TP2/TP3."
+            f"Trade management: once TP1 (${_fmt_asset_price(tp1, dp_hint)}) is hit, move the stop loss to breakeven "
+            f"(${_fmt_asset_price(entry_price, dp_hint)}){pip_note}, then trail the remaining position toward TP2/TP3."
         )
     else:
         management_advice = "No active trade — stand aside and wait for an A/B grade confluence setup."
@@ -566,16 +725,26 @@ def analyze_market_signals(
         signal, grade, bias, struct_trend, acc_dist, entry_quality,
         candle_pats, fng_value, fng_zone, symbol, price, curr_ema20, curr_ema50,
         entry_strategy, rr_tp1, rr_gate_passed, bb_squeeze, vol_profile,
+        asset_class=asset_class, forex_context=forex_context, price_decimals=dp_hint,
     )
     narrative = f"{narrative} {management_advice}"
 
     # =========================================================================
     # ASSEMBLE OUTPUT
     # =========================================================================
-    dp = _price_decimals(price)
+    dp = _asset_price_decimals(price, symbol, asset_class)
 
-    return {
+    risk_pips = _to_pips(entry_price - calculated_sl, symbol, pip_size) if pip_size else None
+    tp1_pips = _to_pips(tp1 - entry_price, symbol, pip_size) if pip_size else None
+    tp2_pips = _to_pips(tp2 - entry_price, symbol, pip_size) if pip_size else None
+    tp3_pips = _to_pips(tp3 - entry_price, symbol, pip_size) if pip_size else None
+    atr_pips = _to_pips(curr_atr, symbol, pip_size) if pip_size else None
+
+    output = {
         "symbol": symbol,
+        "asset_class": asset_class,
+        "price_decimals": dp,
+        "pip_size": pip_size,
         "price": price,
         "signal": signal,
         "bias": bias,
@@ -593,12 +762,24 @@ def analyze_market_signals(
         "tp1_pct": round(tp1_pct, 2),
         "tp2_pct": round(tp2_pct, 2),
         "tp3_pct": round(tp3_pct, 2),
+        "risk_pips": risk_pips,
+        "tp1_pips": tp1_pips,
+        "tp2_pips": tp2_pips,
+        "tp3_pips": tp3_pips,
+        "atr_pips": atr_pips,
+        "strategy_profile": {
+            "asset_class": asset_class,
+            "label": params["label"],
+            "atr_sl_multiplier": params["atr_sl_multiplier"],
+            "max_stop_pct": params["max_stop_pct"] * 100,
+            "volume_reliability": params["volume_reliability"],
+        },
         "rsi": round(curr_rsi, 2),
         "macd_hist": round(curr_hist, 4),
-        "atr": round(curr_atr, 4),
-        "ema20": round(curr_ema20, 2),
-        "ema50": round(curr_ema50, 2),
-        "ema200": round(curr_ema200, 2),
+        "atr": round(curr_atr, 6) if asset_class == "forex" else round(curr_atr, 4),
+        "ema20": round(curr_ema20, dp),
+        "ema50": round(curr_ema50, dp),
+        "ema200": round(curr_ema200, dp),
         "support": round(recent_low, dp),
         "resistance": round(recent_high, dp),
         "reasons": reasons,
@@ -618,18 +799,24 @@ def analyze_market_signals(
             "description": vol_profile.get("description", ""),
             "is_spike": bool(vol_profile.get("is_spike", False)),
             "volume_ratio": vol_profile.get("volume_ratio", 1.0),
+            "reliability": vol_reliability,
         },
         "candle_patterns_summary": candle_pats.get("summary", ""),
         "bb_squeeze_active": bool(bb_squeeze.get("is_squeeze", False)),
         "layer_scores": layer_scores,
         "rr_gate_passed": rr_gate_passed,
+        "forex_context": forex_context if asset_class == "forex" else None,
     }
+    return output
 
 
 def _build_narrative(
     signal, grade, bias, struct_trend, acc_dist, entry_quality,
     candle_pats, fng_value, fng_zone, symbol, price, ema20, ema50,
     entry_strategy, rr_tp1, rr_gate_passed, bb_squeeze, vol_profile,
+    asset_class: str = "crypto",
+    forex_context: Optional[Dict[str, Any]] = None,
+    price_decimals: Optional[int] = None,
 ) -> str:
     """Build a human-readable trade thesis like a pro trader would explain to a colleague."""
     parts = []
@@ -674,11 +861,22 @@ def _build_narrative(
     elif entry_quality == "LATE":
         parts.append("⚠️ Entry timing is late — consider waiting for a pullback before entering.")
 
-    # Sentiment
-    if fng_zone in ("EXTREME_FEAR", "FEAR"):
-        parts.append(f"Sentiment is fearful ({fng_value}/100) — contrarian opportunity for longs.")
-    elif fng_zone in ("EXTREME_GREED", "GREED"):
-        parts.append(f"Sentiment is greedy ({fng_value}/100) — exercise caution and tighten risk.")
+    # Sentiment / macro context
+    if asset_class == "forex":
+        ctx = forex_context or {}
+        parts.append(
+            f"FX macro backdrop: DXY {ctx.get('dxy_value', 0.0)} "
+            f"({ctx.get('dxy_change_pct', 0.0):+.2f}%, {ctx.get('dxy_classification', 'Balanced Dollar')}) "
+            f"and VIX {ctx.get('vix_value', 0.0)} ({ctx.get('vix_zone', 'CALM')})."
+        )
+        if ctx.get("session_description"):
+            parts.append(ctx["session_description"] + ".")
+        parts.append(f"Pair sentiment scores {fng_value}/100 ({fng_zone}).")
+    else:
+        if fng_zone in ("EXTREME_FEAR", "FEAR"):
+            parts.append(f"Sentiment is fearful ({fng_value}/100) — contrarian opportunity for longs.")
+        elif fng_zone in ("EXTREME_GREED", "GREED"):
+            parts.append(f"Sentiment is greedy ({fng_value}/100) — exercise caution and tighten risk.")
 
     # R:R gate
     if not rr_gate_passed and signal != "NEUTRAL":
@@ -687,10 +885,14 @@ def _build_narrative(
     return " ".join(parts)
 
 
-def _insufficient_data(symbol: str) -> Dict[str, Any]:
+def _insufficient_data(symbol: str, asset_class: str = "crypto") -> Dict[str, Any]:
     """Return a safe default when there isn't enough candle history."""
+    pip_size = _forex_pip_size(symbol) if asset_class == "forex" else None
     return {
         "symbol": symbol,
+        "asset_class": asset_class,
+        "price_decimals": _asset_price_decimals(0.0, symbol, asset_class) if asset_class == "forex" else 8,
+        "pip_size": pip_size,
         "signal": "INSUFFICIENT_DATA",
         "grade": "D",
         "score": 0,
@@ -702,6 +904,14 @@ def _insufficient_data(symbol: str) -> Dict[str, Any]:
         "take_profit_1": 0, "take_profit_2": 0, "take_profit_3": 0,
         "risk_reward_tp1": "0", "risk_reward_tp2": "0",
         "risk_pct": 0, "tp1_pct": 0, "tp2_pct": 0, "tp3_pct": 0,
+        "risk_pips": None, "tp1_pips": None, "tp2_pips": None, "tp3_pips": None, "atr_pips": None,
+        "strategy_profile": {
+            "asset_class": asset_class,
+            "label": _asset_params(asset_class)["label"],
+            "atr_sl_multiplier": _asset_params(asset_class)["atr_sl_multiplier"],
+            "max_stop_pct": _asset_params(asset_class)["max_stop_pct"] * 100,
+            "volume_reliability": _asset_params(asset_class)["volume_reliability"],
+        },
         "rsi": 50, "macd_hist": 0, "atr": 0,
         "ema20": 0, "ema50": 0, "ema200": 0,
         "support": 0, "resistance": 0,
@@ -716,4 +926,5 @@ def _insufficient_data(symbol: str) -> Dict[str, Any]:
         "bb_squeeze_active": False,
         "layer_scores": {},
         "rr_gate_passed": False,
+        "forex_context": None,
     }

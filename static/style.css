@@ -2350,3 +2350,307 @@ body {
 }
 
 
+
+/* ==========================================================================
+   MARKET SWITCHER (CRYPTO / FOREX)
+   ========================================================================== */
+.market-switcher-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.market-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+}
+
+.market-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.market-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.market-tab .market-tab-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.market-tab.active {
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(59, 130, 246, 0.95));
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+}
+
+.market-tab.active[data-market="forex"] {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.92), rgba(217, 119, 6, 0.95));
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.45);
+}
+
+.market-switcher-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.market-feed-badge,
+.market-hours-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.market-hours-badge.open {
+  color: var(--color-green-light);
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.market-hours-badge.closed {
+  color: var(--color-red-light);
+  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.12);
+}
+
+/* ==========================================================================
+   FOREX MARKET CLOSED BANNER
+   ========================================================================== */
+.market-closed-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.14), rgba(245, 158, 11, 0.04));
+  color: #fcd34d;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.closed-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-amber);
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  animation: closedPulse 1.8s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes closedPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.65); }
+  70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+
+
+/* ==========================================================================
+   FX SESSION INDICATOR STRIP
+   ========================================================================== */
+.session-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.session-strip-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+.session-badge.active {
+  color: #0b1220;
+  border-color: rgba(240, 185, 11, 0.6);
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.35);
+}
+
+.session-liquidity-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-amber);
+}
+
+/* ==========================================================================
+   FOREX ACCENT PALETTE (gold / amber) — applied when Forex mode is active
+   ========================================================================== */
+body.market-forex {
+  --color-blue: #f0b90b;
+  --color-blue-glow: rgba(240, 185, 11, 0.25);
+  --border-focus: #f59e0b;
+}
+
+body.market-forex .cat-pill:hover {
+  border-color: var(--color-amber);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+body.market-forex .cat-pill.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.28), rgba(217, 119, 6, 0.4));
+  border-color: var(--color-amber);
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+body.market-forex .live-pulse .pulse-dot {
+  background: var(--color-amber);
+}
+
+/* ==========================================================================
+   CATEGORY PILL GROUPS (crypto & forex)
+   ========================================================================== */
+.category-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+/* ==========================================================================
+   FOREX SENTIMENT PANEL (DXY gauge / VIX / sessions)
+   ========================================================================== */
+.forex-sentiment-grid .fng-fill {
+  background: linear-gradient(90deg, #f43f5e, #f59e0b 50%, #10b981) !important;
+}
+
+.fx-zone-extreme_dollar_weakness,
+.fx-zone-weak_dollar { color: #fb7185; background: rgba(244, 63, 94, 0.15); }
+
+.fx-zone-neutral_dollar { color: #a3a3a3; background: rgba(163, 163, 163, 0.15); }
+
+.fx-zone-strong_dollar,
+.fx-zone-extreme_dollar_strength { color: #fbbf24; background: rgba(251, 191, 36, 0.15); }
+
+.fx-context-note {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.forex-pip-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin-bottom: 12px;
+}
+
+
+/* ==========================================================================
+   RESPONSIVE: MARKET SWITCHER & FX PANELS
+   ========================================================================== */
+@media (max-width: 768px) {
+  .market-switcher-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .market-switcher {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .market-tab {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+  }
+
+  .market-switcher-meta {
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 520px) {
+  .market-tab-text {
+    display: none;
+  }
+
+  .market-tab {
+    padding: 9px 14px;
+  }
+
+  .session-strip {
+    font-size: 10px;
+  }
+
+  .session-liquidity-tag {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .market-closed-banner {
+    font-size: 11px;
+    align-items: flex-start;
+  }
+}
+

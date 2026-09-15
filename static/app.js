@@ -7,6 +7,7 @@
 // Application State
 let currentSymbol = "BTCUSDT";
 let currentInterval = "15m";
+let currentMarket = "crypto"; // "crypto" | "forex"
 let currentFilter = "all";
 let currentCategory = "all";
 let audioEnabled = true;
@@ -14,6 +15,15 @@ let lastObservedSignal = "";
 let activeSignalData = null;
 let autoRefreshTimer = null;
 let allSymbolsCache = [];
+let activePriceDecimals = null; // pip precision supplied by the API in Forex mode
+let forexMarketStatus = null;   // latest FX session / market-hours snapshot
+
+// Default instrument per market
+const DEFAULT_SYMBOL_BY_MARKET = { crypto: "BTCUSDT", forex: "EURUSD" };
+const SEARCH_PLACEHOLDER = {
+  crypto: "Search 50+ pairs (e.g. SOL, SUI, PEPE)...",
+  forex: "Search 28+ forex pairs (e.g. EURUSD, GBPJPY, USDTRY)...",
+};
 
 // Chart instance & series references
 let chart = null;
@@ -86,6 +96,79 @@ const gsMktCap = document.getElementById("gsMktCap");
 const gsBtcDom = document.getElementById("gsBtcDom");
 const gsEthDom = document.getElementById("gsEthDom");
 const trendingCoins = document.getElementById("trendingCoins");
+
+// DOM Elements - Market Switcher & Forex context
+const marketSwitcher = document.getElementById("marketSwitcher");
+const marketFeedBadge = document.getElementById("marketFeedBadge");
+const marketHoursBadge = document.getElementById("marketHoursBadge");
+const marketClosedBanner = document.getElementById("marketClosedBanner");
+const marketClosedText = document.getElementById("marketClosedText");
+const sessionStrip = document.getElementById("sessionStrip");
+const sentimentTitle = document.getElementById("sentimentTitle");
+const sentimentBadge = document.getElementById("sentimentBadge");
+const cryptoSentimentPanel = document.getElementById("cryptoSentimentPanel");
+const forexSentimentPanel = document.getElementById("forexSentimentPanel");
+const dxyFill = document.getElementById("dxyFill");
+const dxyPointer = document.getElementById("dxyPointer");
+const dxyValue = document.getElementById("dxyValue");
+const dxyClass = document.getElementById("dxyClass");
+const dxyAdvice = document.getElementById("dxyAdvice");
+const vixValue = document.getElementById("vixValue");
+const vixRegime = document.getElementById("vixRegime");
+const usdBias = document.getElementById("usdBias");
+const fxLiquidity = document.getElementById("fxLiquidity");
+const fxContextNote = document.getElementById("fxContextNote");
+const fxSessionBadges = document.getElementById("fxSessionBadges");
+const scannerTitle = document.getElementById("scannerTitle");
+const scannerDesc = document.getElementById("scannerDesc");
+const chartLoadingText = document.getElementById("chartLoadingText");
+const footerFeedText = document.getElementById("footerFeedText");
+const cryptoCategoryPills = document.getElementById("cryptoCategoryPills");
+const forexCategoryPills = document.getElementById("forexCategoryPills");
+const forexPipHint = document.getElementById("forexPipHint");
+const pairIcon = document.getElementById("pairIcon");
+
+/**
+ * ============================================================================
+ * MARKET CONTEXT HELPERS (Crypto / Forex)
+ * ============================================================================
+ */
+function isForexMode() {
+  return currentMarket === "forex";
+}
+
+/** Query-string fragment appended to every API call so the backend knows the market. */
+function marketQuery(prefix = "&") {
+  return `${prefix}market=${currentMarket}`;
+}
+
+function pricePrefix() {
+  return isForexMode() ? "" : "$";
+}
+
+/** Formats a price using API-provided pip precision (Forex) or magnitude rules (crypto). */
+function formatAssetPrice(val, decimals) {
+  const dp = decimals !== undefined && decimals !== null ? decimals : activePriceDecimals;
+  if (dp === null || dp === undefined) return formatPrice(val);
+  const num = parseFloat(val);
+  if (!isFinite(num)) return (0).toFixed(dp);
+  return num.toLocaleString("en-US", { minimumFractionDigits: dp, maximumFractionDigits: dp });
+}
+
+function pipSizeFor(symbol) {
+  return String(symbol || "").toUpperCase().endsWith("JPY") ? 0.01 : 0.0001;
+}
+
+function toPips(distance, symbol) {
+  const pip = pipSizeFor(symbol);
+  return Math.round((Math.abs(parseFloat(distance) || 0) / pip) * 10) / 10;
+}
+
+/** Position-size unit label: base currency for FX pairs, coin ticker for crypto. */
+function assetUnitLabel(symbol) {
+  const sym = String(symbol || "");
+  return isForexMode() ? sym.slice(0, 3) : sym.replace("USDT", "");
+}
 
 // DOM Elements - Scanner
 const scannerCards = document.getElementById("scannerCards");
@@ -330,8 +413,13 @@ function drawTradeLevels(sig) {
 async function loadChartData(symbol = currentSymbol, interval = currentInterval) {
   try {
     chartLoading.style.display = "flex";
+    if (chartLoadingText) {
+      chartLoadingText.textContent = isForexMode()
+        ? "Fetching Forex Market Data..."
+        : "Fetching Binance Market Data...";
+    }
 
-    const res = await fetch(`/api/analyze?symbol=${encodeURIComponent(symbol)}&interval=${interval}`);
+    const res = await fetch(`/api/analyze?symbol=${encodeURIComponent(symbol)}&interval=${interval}${marketQuery()}`);
     const data = await res.json();
 
     if (!data.success) {
@@ -342,11 +430,18 @@ async function loadChartData(symbol = currentSymbol, interval = currentInterval)
     // Update Header Pill & Meta
     currentSymbol = data.symbol;
     currentPairText.textContent = data.symbol;
-    currentPriceText.textContent = `$${formatPrice(data.latest_price)}`;
-    chartTitle.textContent = `${data.symbol} • ${interval.toUpperCase()} Binance Candlesticks`;
+    currentPriceText.textContent = `${pricePrefix()}${formatAssetPrice(data.latest_price, data.signal ? data.signal.price_decimals : null)}`;
+    activePriceDecimals = data.signal && data.signal.price_decimals !== undefined ? data.signal.price_decimals : null;
+    chartTitle.textContent = `${data.symbol} • ${interval.toUpperCase()} ${isForexMode() ? "Forex" : "Binance"} Candlesticks`;
 
     if (pairCategoryBadge && data.category) {
       pairCategoryBadge.textContent = formatCategoryName(data.category);
+    }
+
+    // Forex market-hours state (weekends / holidays)
+    if (isForexMode()) {
+      forexMarketStatus = data.market_status || forexMarketStatus;
+      updateMarketStatusUI(forexMarketStatus);
     }
 
     // Populate chart candles & volume
@@ -454,18 +549,22 @@ function renderSignalDetails(sig) {
     narrativeText.textContent = sig.narrative || "Generating professional analysis...";
   }
 
-  entryVal.textContent = `$${formatPrice(sig.entry)}`;
-  slVal.textContent = `$${formatPrice(sig.stop_loss)}`;
-  slSub.textContent = `Risk: -${sig.risk_pct}%  (SL Cushion)`;
+  const priceDecimals = sig.price_decimals !== undefined ? sig.price_decimals : null;
+  const fmt = (value) => `${pricePrefix()}${formatAssetPrice(value, priceDecimals)}`;
+  const pipInfo = (value) => (isForexMode() && value !== undefined && value !== null ? ` • ${value} pips` : "");
 
-  tp1Val.textContent = `$${formatPrice(sig.take_profit_1)}`;
-  tp1Sub.textContent = `Target: +${sig.tp1_pct}%  (R:R ${sig.risk_reward_tp1 || "1:1.5"})`;
+  entryVal.textContent = fmt(sig.entry);
+  slVal.textContent = fmt(sig.stop_loss);
+  slSub.textContent = `Risk: -${sig.risk_pct}%${pipInfo(sig.risk_pips)}`;
 
-  tp2Val.textContent = `$${formatPrice(sig.take_profit_2)}`;
-  tp2Sub.textContent = `Target: +${sig.tp2_pct}%  (R:R ${sig.risk_reward_tp2 || "1:2.5"})`;
+  tp1Val.textContent = fmt(sig.take_profit_1);
+  tp1Sub.textContent = `Target: +${sig.tp1_pct}%${pipInfo(sig.tp1_pips)} (R:R ${sig.risk_reward_tp1 || "1:1.5"})`;
 
-  tp3Val.textContent = `$${formatPrice(sig.take_profit_3)}`;
-  tp3Sub.textContent = `Runner: +${sig.tp3_pct}%  (Trend Continuation)`;
+  tp2Val.textContent = fmt(sig.take_profit_2);
+  tp2Sub.textContent = `Target: +${sig.tp2_pct}%${pipInfo(sig.tp2_pips)} (R:R ${sig.risk_reward_tp2 || "1:2.5"})`;
+
+  tp3Val.textContent = fmt(sig.take_profit_3);
+  tp3Sub.textContent = `Runner: +${sig.tp3_pct}%${pipInfo(sig.tp3_pips)} (Trend Continuation)`;
 
   // Indicators Bar
   rsiVal.textContent = sig.rsi || "--";
@@ -486,9 +585,11 @@ function renderSignalDetails(sig) {
   macdVal.textContent = sig.macd_hist !== undefined ? sig.macd_hist : "--";
   macdVal.style.color = sig.macd_hist >= 0 ? "#10b981" : "#f43f5e";
 
-  atrVal.textContent = `$${formatPrice(sig.atr)}`;
-  supportVal.textContent = `$${formatPrice(sig.support)}`;
-  resistVal.textContent = `$${formatPrice(sig.resistance)}`;
+  atrVal.textContent = isForexMode()
+    ? `${formatAssetPrice(sig.atr, Math.min(priceDecimals || 5, 5))}${sig.atr_pips ? ` (${sig.atr_pips} pips)` : ""}`
+    : `$${formatPrice(sig.atr)}`;
+  supportVal.textContent = fmt(sig.support);
+  resistVal.textContent = fmt(sig.resistance);
 
   // Confluence Factors
   reasonsList.innerHTML = "";
@@ -513,7 +614,7 @@ function renderSignalDetails(sig) {
  */
 async function loadMTFConfluence(symbol = currentSymbol) {
   try {
-    const res = await fetch(`/api/mtf?symbol=${encodeURIComponent(symbol)}`);
+    const res = await fetch(`/api/mtf?symbol=${encodeURIComponent(symbol)}${marketQuery()}`);
     const data = await res.json();
     if (!data.success) return;
 
@@ -589,7 +690,7 @@ async function loadMTFConfluence(symbol = currentSymbol) {
  */
 async function loadSymbolsDatalist() {
   try {
-    const res = await fetch("/api/symbols");
+    const res = await fetch(`/api/symbols${marketQuery("?")}`);
     const data = await res.json();
     if (!data.success || !data.symbols) return;
 
@@ -599,7 +700,7 @@ async function loadSymbolsDatalist() {
     data.symbols.forEach((item) => {
       const opt = document.createElement("option");
       opt.value = item.symbol;
-      opt.label = `${formatCategoryName(item.category)} • $${formatPrice(item.price)}`;
+      opt.label = `${formatCategoryName(item.category)} • ${pricePrefix()}${formatAssetPrice(item.price, item.price_decimals)}`;
       coinDatalist.appendChild(opt);
     });
   } catch (e) {
@@ -609,8 +710,10 @@ async function loadSymbolsDatalist() {
 
 async function loadScanner(interval = currentInterval, category = currentCategory) {
   try {
-    scannerCards.innerHTML = `<div class="scanner-loading">Scanning Binance ${category.toUpperCase()} assets (${interval})...</div>`;
-    const res = await fetch(`/api/scanner?interval=${interval}&category=${category}&limit=30`);
+    const feed = isForexMode() ? "Forex" : "Binance";
+    const noun = isForexMode() ? "pairs" : "assets";
+    scannerCards.innerHTML = `<div class="scanner-loading">Scanning ${feed} ${category.toUpperCase()} ${noun} (${interval})...</div>`;
+    const res = await fetch(`/api/scanner?interval=${interval}&category=${category}&limit=30${marketQuery()}`);
     const data = await res.json();
     if (!data.success) return;
 
@@ -652,13 +755,13 @@ function renderScannerCards(items) {
         <span class="scan-badge ${badgeClass}">${item.signal}</span>
       </div>
       <div class="scan-price-row">
-        <span class="scan-price">$${formatPrice(item.price)}</span>
+        <span class="scan-price">${pricePrefix()}${formatAssetPrice(item.price, item.price_decimals)}</span>
         <span style="font-size: 11px; color: #94a3b8;">RSI: ${item.rsi}</span>
         <span class="scan-trend-tag">${trendEmoji} ${msTrend || "--"}</span>
       </div>
       <div class="scan-targets">
-        <span class="scan-tp">TP: +${item.tp1_pct}%</span>
-        <span class="scan-sl">SL: -${item.risk_pct}%</span>
+        <span class="scan-tp">TP: +${item.tp1_pct}%${isForexMode() && item.tp1_pips ? ` (${item.tp1_pips} pips)` : ""}</span>
+        <span class="scan-sl">SL: -${item.risk_pct}%${isForexMode() && item.risk_pips ? ` (${item.risk_pips} pips)` : ""}</span>
       </div>
     `;
 
@@ -736,10 +839,12 @@ function calculatePositionSize() {
   const initialMargin = positionUsd / leverage;
 
   resPosUsd.textContent = `$${formatPrice(positionUsd)}`;
-  resPosCoins.textContent = `${formatPrice(positionCoins)} ${currentSymbol.replace("USDT", "")}`;
+  resPosCoins.textContent = `${formatPrice(positionCoins)} ${assetUnitLabel(currentSymbol)}`;
   resMargin.textContent = `$${formatPrice(initialMargin)}`;
   resLossVal.textContent = `-$${formatPrice(riskDollar)} (-${riskPct}%)`;
-  resDistPct.textContent = `${(distancePct * 100).toFixed(2)}%`;
+  resDistPct.textContent = isForexMode()
+    ? `${(distancePct * 100).toFixed(2)}% • ${toPips(entry - sl, currentSymbol)} pips`
+    : `${(distancePct * 100).toFixed(2)}%`;
 
   // Estimated Liquidation Price with 0.5% maintenance margin
   let liqPrice = 0;
@@ -771,9 +876,9 @@ function calculatePositionSize() {
     const tp2 = activeSignalData.take_profit_2 || 0;
     const tp3 = activeSignalData.take_profit_3 || 0;
 
-    resTp1Price.textContent = `$${formatPrice(tp1)}`;
-    resTp2Price.textContent = `$${formatPrice(tp2)}`;
-    resTp3Price.textContent = `$${formatPrice(tp3)}`;
+    resTp1Price.textContent = `${pricePrefix()}${formatAssetPrice(tp1, activeSignalData.price_decimals)}`;
+    resTp2Price.textContent = `${pricePrefix()}${formatAssetPrice(tp2, activeSignalData.price_decimals)}`;
+    resTp3Price.textContent = `${pricePrefix()}${formatAssetPrice(tp3, activeSignalData.price_decimals)}`;
 
     const pnl1 = Math.abs((tp1 - entry) / entry) * positionUsd;
     const pnl2 = Math.abs((tp2 - entry) / entry) * positionUsd;
@@ -837,7 +942,7 @@ function setupEventListeners() {
   searchBtn.addEventListener("click", () => {
     const val = symbolInput.value.trim().toUpperCase();
     if (val) {
-      currentSymbol = val.endsWith("USDT") ? val : val + "USDT";
+      currentSymbol = normalizeSearchSymbol(val);
       loadChartData(currentSymbol, currentInterval);
       symbolInput.value = "";
     }
@@ -853,7 +958,7 @@ function setupEventListeners() {
   refreshBtn.addEventListener("click", () => {
     loadChartData(currentSymbol, currentInterval);
     loadScanner(currentInterval, currentCategory);
-    showToast("Data refreshed from Binance", "info");
+    showToast(`Data refreshed from ${isForexMode() ? "Forex feed" : "Binance"}`, "info");
   });
 
   // Audio Toggle (Feature 3)
@@ -920,7 +1025,7 @@ function setupEventListeners() {
   telegramBtn.addEventListener("click", async () => {
     try {
       telegramBtn.disabled = true;
-      const res = await fetch(`/api/notify?symbol=${encodeURIComponent(currentSymbol)}&interval=${currentInterval}`, {
+      const res = await fetch(`/api/notify?symbol=${encodeURIComponent(currentSymbol)}&interval=${currentInterval}${marketQuery()}`, {
         method: "POST",
       });
       const data = await res.json();
@@ -962,20 +1067,31 @@ function setupEventListeners() {
     });
   });
 
-  // Category Filter Pills (Feature 1: 50+ Coins Categories)
+  // Category Filter Pills (crypto sectors & forex pair groups)
   const catPills = document.querySelectorAll(".cat-pill");
   catPills.forEach((pill) => {
     pill.addEventListener("click", () => {
-      catPills.forEach((p) => p.classList.remove("active"));
+      const group = pill.parentElement ? pill.parentElement.querySelectorAll(".cat-pill") : catPills;
+      group.forEach((p) => p.classList.remove("active"));
       pill.classList.add("active");
       currentCategory = pill.getAttribute("data-cat");
       loadScanner(currentInterval, currentCategory);
     });
   });
 
+  // Market Switcher (Crypto <-> Forex)
+  if (marketSwitcher) {
+    marketSwitcher.querySelectorAll(".market-tab").forEach((tab) => {
+      tab.addEventListener("click", () => switchMarket(tab.getAttribute("data-market")));
+    });
+  }
+
   // Auto-refresh interval (every 20s)
   autoRefreshTimer = setInterval(() => {
     loadChartData(currentSymbol, currentInterval);
+    if (isForexMode()) {
+      loadSentimentData(); // keeps FX session / market-hours badge current
+    }
   }, 20000);
 }
 
@@ -983,6 +1099,7 @@ function setupEventListeners() {
 document.addEventListener("DOMContentLoaded", () => {
   initChart();
   setupEventListeners();
+  applyMarketUI();
   loadSymbolsDatalist();
   loadChartData(currentSymbol, currentInterval);
   loadScanner(currentInterval, currentCategory);
@@ -991,14 +1108,155 @@ document.addEventListener("DOMContentLoaded", () => {
 
 /**
  * ============================================================================
- * MARKET SENTIMENT DATA (Fear & Greed + Trending + Global)
+ * MARKET SWITCHER (CRYPTO <-> FOREX)
+ * ============================================================================
+ */
+function normalizeSearchSymbol(rawValue) {
+  const val = String(rawValue || "").trim().toUpperCase();
+  if (isForexMode()) {
+    return val.replace("=X", "").replace(/[^A-Z]/g, "");
+  }
+  return val.endsWith("USDT") ? val : val + "USDT";
+}
+
+/** Applies all market-dependent labels, panels and accents without refetching data. */
+function applyMarketUI() {
+  const forex = isForexMode();
+
+  document.body.classList.toggle("market-forex", forex);
+
+  if (marketSwitcher) {
+    marketSwitcher.querySelectorAll(".market-tab").forEach((tab) => {
+      tab.classList.toggle("active", tab.getAttribute("data-market") === currentMarket);
+    });
+  }
+
+  if (pairIcon) pairIcon.textContent = forex ? "💱" : "🪙";
+  if (marketFeedBadge) marketFeedBadge.textContent = forex ? "Forex Feed • Twelve Data + Yahoo" : "Binance Public Feed";
+  if (marketHoursBadge && !forex) {
+    marketHoursBadge.textContent = "24 / 7 Open";
+    marketHoursBadge.className = "market-hours-badge open";
+  }
+
+  if (symbolInput) symbolInput.placeholder = SEARCH_PLACEHOLDER[currentMarket];
+  if (footerFeedText) {
+    footerFeedText.textContent = forex
+      ? "Real-Time Forex Market Stream (Twelve Data / Yahoo Finance)"
+      : "Real-Time Binance Public Market Stream";
+  }
+
+  if (cryptoCategoryPills) cryptoCategoryPills.style.display = forex ? "none" : "flex";
+  if (forexCategoryPills) forexCategoryPills.style.display = forex ? "flex" : "none";
+
+  if (cryptoSentimentPanel) cryptoSentimentPanel.style.display = forex ? "none" : "grid";
+  if (forexSentimentPanel) forexSentimentPanel.style.display = forex ? "grid" : "none";
+  if (sentimentTitle) sentimentTitle.textContent = forex ? "Global Forex Sentiment (DXY / VIX)" : "Global Crypto Sentiment";
+  if (sentimentBadge) sentimentBadge.textContent = forex ? "FX MACRO INTELLIGENCE" : "MARKET INTELLIGENCE";
+
+  if (scannerTitle) scannerTitle.textContent = forex ? "Men Trading Forex Pair Scanner" : "Men Trading Multi-Coin Scanner";
+  if (scannerDesc) {
+    scannerDesc.textContent = forex
+      ? "Real-time scan across 28+ forex pairs — majors, minors & exotics"
+      : "Real-time scan across 50+ liquid crypto assets & sectors";
+  }
+
+  if (sessionStrip) sessionStrip.style.display = forex ? "flex" : "none";
+  if (forexPipHint) forexPipHint.style.display = forex ? "block" : "none";
+  if (marketClosedBanner && !forex) marketClosedBanner.style.display = "none";
+}
+
+function switchMarket(market) {
+  const next = market === "forex" ? "forex" : "crypto";
+  if (next === currentMarket) return;
+
+  currentMarket = next;
+  currentCategory = "all";
+  currentSymbol = DEFAULT_SYMBOL_BY_MARKET[currentMarket];
+  currentInterval = "15m";
+  activeSignalData = null;
+  activePriceDecimals = null;
+  lastObservedSignal = "";
+
+  document.querySelectorAll(".tf-btn").forEach((b) => {
+    b.classList.toggle("active", b.getAttribute("data-tf") === currentInterval);
+  });
+
+  const visiblePills = currentMarket === "forex" ? forexCategoryPills : cryptoCategoryPills;
+  if (visiblePills) {
+    visiblePills.querySelectorAll(".cat-pill").forEach((p) => {
+      p.classList.toggle("active", p.getAttribute("data-cat") === "all");
+    });
+  }
+
+  applyMarketUI();
+  loadSymbolsDatalist();
+  loadChartData(currentSymbol, currentInterval);
+  loadScanner(currentInterval, currentCategory);
+  loadSentimentData();
+  showToast(currentMarket === "forex" ? "💱 Switched to Forex market" : "🪙 Switched to Crypto market", "info");
+}
+
+/**
+ * Forex market-hours UI: closed banner + hours badge + session strip.
+ */
+function updateMarketStatusUI(status) {
+  if (!isForexMode() || !status) return;
+
+  if (marketHoursBadge) {
+    if (status.is_open) {
+      marketHoursBadge.textContent = `${status.liquidity || "OPEN"} Liquidity`;
+      marketHoursBadge.className = "market-hours-badge open";
+    } else {
+      marketHoursBadge.textContent = "Market Closed";
+      marketHoursBadge.className = "market-hours-badge closed";
+    }
+  }
+
+  if (marketClosedBanner) {
+    marketClosedBanner.style.display = status.is_open ? "none" : "flex";
+    if (!status.is_open && marketClosedText) {
+      marketClosedText.textContent = `${status.next_open_utc ? `Reopens ${status.next_open_utc}.` : "Weekend session."}`;
+    }
+  }
+
+  if (sessionStrip) {
+    const sessions = status.active_sessions || [];
+    const all = [
+      { key: "SYDNEY", label: "Sydney", emoji: "🌏" },
+      { key: "TOKYO", label: "Tokyo", emoji: "🗼" },
+      { key: "LONDON", label: "London", emoji: "🏛️" },
+      { key: "NEW_YORK", label: "New York", emoji: "🗽" },
+    ];
+    const badges = all
+      .map((s) => {
+        const active = sessions.some((a) => a.key === s.key);
+        return `<span class="session-badge${active ? " active" : ""}">${s.emoji} ${s.label}</span>`;
+      })
+      .join("");
+    sessionStrip.innerHTML = `<span class="session-strip-label">FX Sessions</span>${badges}` +
+      `<span class="session-liquidity-tag">${status.is_open ? `Liquidity: ${status.liquidity}` : "Closed"} • ${status.utc_time || ""}</span>`;
+  }
+
+  if (fxLiquidity) fxLiquidity.textContent = status.is_open ? status.liquidity : "CLOSED";
+}
+
+/**
+ * ============================================================================
+ * MARKET SENTIMENT DATA
+ *   - Crypto: Fear & Greed Index + trending coins + global market
+ *   - Forex:  DXY dollar strength + VIX risk regime + active FX sessions
  * ============================================================================
  */
 async function loadSentimentData() {
   try {
-    const res = await fetch("/api/sentiment");
+    const res = await fetch(`/api/sentiment${marketQuery("?")}`);
     const data = await res.json();
     if (!data.success) return;
+
+    if (isForexMode()) {
+      renderForexSentiment(data);
+      return;
+    }
 
     // Fear & Greed Gauge
     const fg = data.fear_greed || {};
@@ -1049,4 +1307,63 @@ async function loadSentimentData() {
   } catch (e) {
     console.warn("Sentiment fetch error:", e);
   }
+}
+
+/**
+ * Renders the Forex sentiment panel: DXY strength gauge, VIX regime, USD bias
+ * and the active FX session badges + market status.
+ */
+function renderForexSentiment(data) {
+  const dxy = data.dxy || {};
+  const vix = data.vix || {};
+  const session = data.session || data.market_status || {};
+
+  // DXY strength gauge (0 = very weak USD, 100 = very strong USD)
+  const score = Number.isFinite(dxy.score) ? dxy.score : 50;
+  if (dxyFill) dxyFill.style.width = `${score}%`;
+  if (dxyPointer) dxyPointer.style.left = `${score}%`;
+  if (dxyValue) dxyValue.textContent = score;
+  if (dxyClass) {
+    dxyClass.textContent = `${dxy.classification || "Balanced Dollar"}${dxy.value ? ` • ${dxy.value}` : ""}`;
+    dxyClass.className = "fng-class fx-zone-" + String(dxy.zone || "NEUTRAL_DOLLAR").toLowerCase();
+  }
+  if (dxyAdvice) {
+    const change = Number.isFinite(dxy.change_pct) ? `${dxy.change_pct >= 0 ? "+" : ""}${dxy.change_pct}% (5d)` : "";
+    dxyAdvice.textContent = `${change}${change && dxy.advice ? " — " : ""}${dxy.advice || ""}`;
+  }
+
+  // VIX risk regime
+  if (vixValue) {
+    vixValue.textContent = vix.value ? `${vix.value} (${vix.zone || "--"})` : "--";
+    vixValue.style.color = (vix.score || 50) >= 60 ? "#f43f5e" : "#10b981";
+  }
+  if (vixRegime) {
+    vixRegime.textContent = vix.regime || "--";
+    vixRegime.style.color = vix.regime === "RISK_OFF" ? "#f43f5e" : (vix.regime === "RISK_ON" ? "#10b981" : "#f59e0b");
+  }
+  if (usdBias) {
+    usdBias.textContent = data.usd_bias || "--";
+    usdBias.style.color = data.usd_bias === "BULLISH" ? "#fbbf24" : (data.usd_bias === "BEARISH" ? "#fb7185" : "#94a3b8");
+  }
+  if (fxLiquidity) fxLiquidity.textContent = session.is_open ? (session.liquidity || "--") : "CLOSED";
+  if (fxContextNote) {
+    fxContextNote.textContent = data.summary || (vix.advice || "");
+  }
+
+  // Session badges + market-hours state
+  if (fxSessionBadges) {
+    const active = session.active_sessions || [];
+    if (!session.is_open) {
+      fxSessionBadges.innerHTML = `<span class="trending-placeholder">Market closed — ${session.next_open_utc ? `reopens ${session.next_open_utc}` : "weekend session"}</span>`;
+    } else if (active.length === 0) {
+      fxSessionBadges.innerHTML = `<span class="trending-placeholder">No session data</span>`;
+    } else {
+      fxSessionBadges.innerHTML = active
+        .map((s) => `<span class="session-badge active">${s.emoji} ${s.label} • ${s.liquidity}</span>`)
+        .join("");
+    }
+  }
+
+  forexMarketStatus = session;
+  updateMarketStatusUI(session);
 }
